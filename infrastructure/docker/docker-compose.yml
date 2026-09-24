@@ -1,0 +1,59 @@
+version: '3.9'
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    ports: ['27017:27017']
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: erp
+      MONGO_INITDB_ROOT_PASSWORD: erp_dev_password
+      MONGO_INITDB_DATABASE: erp_platform
+    volumes: [mongodb_data:/data/db]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports: ['6379:6379']
+    command: redis-server --appendonly yes
+    volumes: [redis_data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.api
+    ports: ['3000:3000']
+    env_file: ../../.env
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://erp:erp_dev_password@mongodb:27017/erp_platform?authSource=admin
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      mongodb: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.worker
+    env_file: ../../.env
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://erp:erp_dev_password@mongodb:27017/erp_platform?authSource=admin
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis: { condition: service_healthy }
+      mongodb: { condition: service_healthy }
+
+volumes:
+  mongodb_data:
+  redis_data:

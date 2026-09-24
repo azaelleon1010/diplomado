@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@erp/logger": ["packages/logger/src"],
+      "@erp/logger/*": ["packages/logger/src/*"],
+      "@erp/errors": ["packages/errors/src"],
+      "@erp/errors/*": ["packages/errors/src/*"],
+      "@erp/types": ["packages/types/src"],
+      "@erp/types/*": ["packages/types/src/*"],
+      "@erp/config": ["packages/config/src"],
+      "@erp/config/*": ["packages/config/src/*"],
+      "@erp/database": ["packages/database/src"],
+      "@erp/database/*": ["packages/database/src/*"]
+    }
+  }
+}

@@ -1,0 +1,43 @@
+name: ci
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: { node-version: [22] }
+    services:
+      mongodb:
+        image: mongo:7
+        ports: ['27017:27017']
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s --health-timeout 3s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ matrix.node-version }}', cache: 'npm' }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      - name: health check
+        run: |
+          npm run build --workspace=@erp/api
+          timeout 10 npm start --workspace=@erp/api &
+          sleep 5
+          curl -f http://localhost:3000/api/v1/health/live || curl -f http://localhost:3000/health/live
+        env:
+          MONGODB_URI: mongodb://localhost:27017/erp_platform_test
+          REDIS_URL: redis://localhost:6379
