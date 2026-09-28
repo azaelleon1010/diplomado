@@ -1,7 +1,15 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist"
+    "outDir": "dist",
+    "paths": {
+      "@erp/config": ["packages/config/dist/index"],
+      "@erp/config/*": ["packages/config/dist/*"],
+      "@erp/errors": ["packages/errors/dist/index"],
+      "@erp/errors/*": ["packages/errors/dist/*"],
+      "@erp/logger": ["packages/logger/dist/index"],
+      "@erp/logger/*": ["packages/logger/dist/*"]
+    }
   },
   "include": [
     "src"
