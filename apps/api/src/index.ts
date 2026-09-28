@@ -38,7 +38,7 @@ async function bootstrap() {
 
   const app = createApp();
 
-  const server = app.listen(config.server.port, () => {
+  const server = app.listen(config.server.port, '0.0.0.0', () => {
     logger.info({ port: config.server.port, env: config.NODE_ENV, version: '0.1.0' }, 'API listening');
   });
 
