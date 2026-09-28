@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "baseUrl": ".",
+    "paths": {
+      "@erp/logger": ["../../packages/logger/src"],
+      "@erp/errors": ["../../packages/errors/src"],
+      "@erp/types": ["../../packages/types/src"],
+      "@erp/config": ["../../packages/config/src"],
+      "@erp/database": ["../../packages/database/src"]
+    },
+    "types": ["node", "react", "react-native-web"]
+  },
+  "include": ["src"]
+}
