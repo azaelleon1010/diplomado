@@ -21,7 +21,7 @@
       "@erp/config": ["../../packages/config/src"],
       "@erp/database": ["../../packages/database/src"]
     },
-    "types": ["node", "react", "react-native-web"]
+    "types": ["node", "react"]
   },
   "include": ["src"]
 }
