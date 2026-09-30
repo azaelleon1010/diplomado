@@ -54,6 +54,11 @@ react {
 
     /* Autolinking */
     autolinkLibrariesWithApp()
+    hermesCommand = new File(
+        ["node", "--print",
+        "require.resolve('hermes-compiler/package.json', { paths: [require.resolve('react-native/package.json')] })"
+        ].execute(null, rootDir).text.trim()
+    ).getParentFile().getAbsolutePath() + "/hermesc/%OS-BIN%/hermesc"
 }
 
 /**

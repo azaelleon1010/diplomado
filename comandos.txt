@@ -1,0 +1,4 @@
+adb -s emulator-5554 reverse tcp:8081 tcp:8081
+npm run android --workspace @erp/mobile -- --no-packager --port 8081
+cd C:\proyecto_diplomado\apps\mobile
+npx react-native start --port 8081 --reset-cache
