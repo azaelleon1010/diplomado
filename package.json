@@ -9,7 +9,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace @erp/types && npm run build --workspace @erp/errors && npm run build --workspace @erp/logger && npm run build --workspace @erp/config && npm run build --workspace @erp/database && npm run build --workspace @erp/api && npm run build --workspace @erp/web && npm run build --workspace @erp/worker",
     "dev": "npm run dev --workspaces --if-present",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
