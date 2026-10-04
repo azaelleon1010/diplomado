@@ -7,6 +7,7 @@ import { traceMiddleware } from './middleware/trace';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { healthRouter } from './routes/health';
+import { buildAuthMiddleware, buildIdentityDeps, createAuthRouter, createMeRouter, createUsersRouter } from './modules/identity/presentation/routes';
 import { openApiSpec } from './openapi';
 
 export function createApp() {
@@ -38,8 +39,14 @@ export function createApp() {
   app.use('/api/v1/health', healthRouter);
   app.use('/health', healthRouter);
 
+  // Identity (Phase 3A): auth + users, tenant-scoped, backend as final authority
+  const identityDeps = buildIdentityDeps();
+  const authMiddleware = buildAuthMiddleware(identityDeps);
+  app.use('/api/v1/auth', createAuthRouter(identityDeps, authMiddleware));
+  app.use('/api/v1', createMeRouter(identityDeps, authMiddleware));
+  app.use('/api/v1/users', createUsersRouter(identityDeps, authMiddleware));
+
   // Placeholder for future modules - illustrates versioned, resource-oriented routing
-  // Example: app.use('/api/v1/auth', authRouter);
   // Example: app.use('/api/v1/customers', customersRouter);
 
   app.use(notFoundHandler);

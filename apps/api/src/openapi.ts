@@ -9,6 +9,8 @@ export const openApiSpec = {
   tags: [
     { name: 'health', description: 'Health and readiness' },
     { name: 'system', description: 'System info' },
+    { name: 'auth', description: 'Authentication (Phase 3A)' },
+    { name: 'users', description: 'User administration (Phase 3A)' },
   ],
   paths: {
     '/health': {
@@ -32,6 +34,66 @@ export const openApiSpec = {
     },
     '/openapi.json': {
       get: { tags: ['system'], summary: 'OpenAPI spec', responses: { '200': { description: 'Spec' } } },
+    },
+    '/auth/login': {
+      post: {
+        tags: ['auth'],
+        summary: 'Login with email + password (optional tenantId)',
+        responses: { '200': { description: 'Token pair + user' }, '401': { description: 'Invalid credentials' } },
+      },
+    },
+    '/auth/refresh': {
+      post: {
+        tags: ['auth'],
+        summary: 'Rotate refresh token',
+        responses: { '200': { description: 'New token pair' }, '401': { description: 'Invalid or expired refresh token' } },
+      },
+    },
+    '/auth/logout': {
+      post: {
+        tags: ['auth'],
+        summary: 'Revoke current session',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Logged out' }, '401': { description: 'Unauthorized' } },
+      },
+    },
+    '/me': {
+      get: {
+        tags: ['auth'],
+        summary: 'Current user + memberships + permissions',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Identity context' }, '401': { description: 'Unauthorized' } },
+      },
+    },
+    '/users': {
+      get: {
+        tags: ['users'],
+        summary: 'List users in tenant (paginated)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'User list' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.read' } },
+      },
+      post: {
+        tags: ['users'],
+        summary: 'Create user (administrative only)',
+        security: [{ bearerAuth: [] }],
+        responses: { '201': { description: 'User created' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.write' }, '409': { description: 'Duplicate email' } },
+      },
+    },
+    '/users/{id}': {
+      get: {
+        tags: ['users'],
+        summary: 'Get user by id (tenant-scoped)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'User' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.read' }, '404': { description: 'Not found' } },
+      },
+    },
+    '/users/{id}/roles': {
+      post: {
+        tags: ['users'],
+        summary: 'Assign roles to membership',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Membership updated' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.write' }, '404': { description: 'Membership not found' } },
+      },
     },
   },
   components: {

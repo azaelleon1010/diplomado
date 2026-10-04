@@ -15,6 +15,7 @@ declare global {
       requestId: string;
       tenantId?: string;
       userId?: string;
+      sessionId?: string;
       startTime: number;
     }
   }

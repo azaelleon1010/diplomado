@@ -3,6 +3,7 @@
  * Business modules extend this, never query Mongoose directly from controllers.
  */
 import type { FilterQuery, Model, ClientSession } from 'mongoose';
+import { AppError, validationError } from '@erp/errors';
 import { mapMongoError } from './errors';
 
 export interface TenantContext {
@@ -37,13 +38,21 @@ export abstract class BaseRepository<T extends { _id: unknown; tenantId: string;
     } catch (err) { throw mapMongoError(err); }
   }
 
-  /** tenant-scoped find with pagination */
-  async findMany(filter: FilterQuery<T>, ctx: TenantContext, pagination: Pagination = { page: 1, limit: 20 }, session?: ClientSession) {
+  /** tenant-scoped find with pagination.
+   * sortBy is restricted to an allowlist (fail-closed) to avoid sort injection.
+   */
+  async findMany(filter: FilterQuery<T>, ctx: TenantContext, pagination: Pagination = { page: 1, limit: 20 }, session?: ClientSession, options?: { allowedSortFields?: string[] }) {
     const f = this.tenantFilter(ctx, filter);
     const page = Math.max(1, pagination.page);
     const limit = Math.min(100, Math.max(1, pagination.limit));
+    const allowed = options?.allowedSortFields ?? ['createdAt', 'updatedAt'];
     const sort: Record<string, 1 | -1> = { createdAt: -1 };
-    if (pagination.sortBy) sort[pagination.sortBy] = pagination.sortOrder === 'asc' ? 1 : -1;
+    if (pagination.sortBy) {
+      if (!allowed.includes(pagination.sortBy)) {
+        throw validationError(`Invalid sort field: ${pagination.sortBy}`, { allowedSortFields: allowed });
+      }
+      sort[pagination.sortBy] = pagination.sortOrder === 'asc' ? 1 : -1;
+    }
     try {
       const q = this.model.find(f).sort(sort).skip((page - 1) * limit).limit(limit);
       if (session) q.session(session);
@@ -83,7 +92,7 @@ export abstract class BaseRepository<T extends { _id: unknown; tenantId: string;
         // distinguish not-found vs version conflict
         const exists = await this.model.findOne(this.tenantFilter(ctx, { _id: id } as FilterQuery<T>)).session(session ?? null).exec();
         if (exists) throw mapMongoError(Object.assign(new Error('Version conflict'), { name: 'VersionError' }));
-        throw new (await import('@erp/errors')).AppError({ code: 'NOT_FOUND', message: 'Document not found', statusCode: 404 });
+        throw new AppError({ code: 'NOT_FOUND', message: 'Document not found', statusCode: 404 });
       }
       return updated as T;
     } catch (err) { throw mapMongoError(err); }

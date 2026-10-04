@@ -1,6 +1,7 @@
 import { getConfig } from '@erp/config';
 import { createApp } from './app';
-import { classifyMongoError, connectMongo, disconnectMongo } from '@erp/database';
+import { classifyMongoError, connectMongo, disconnectMongo, ensureIndexes } from '@erp/database';
+import { identityModels } from './modules/identity/infrastructure/models';
 import { getRedis, disconnectRedis } from './db/redis';
 import { logger } from './lib/logger';
 
@@ -14,6 +15,18 @@ async function bootstrap() {
   try {
     await connectMongo();
     logger.info('MongoDB Atlas connection verified');
+    // Identity indexes must exist before serving traffic (explicit sync;
+    // autoIndex stays off in production).
+    try {
+      await ensureIndexes(identityModels);
+      logger.info('identity indexes ensured');
+    } catch (err) {
+      if (config.NODE_ENV === 'production') {
+        logger.fatal({ err: (err as Error).message }, 'index sync failed — refusing to start in production');
+        throw err;
+      }
+      logger.warn({ err: (err as Error).message }, 'index sync failed — continuing in degraded mode (dev/test only)');
+    }
   } catch (err) {
     const failure = classifyMongoError(err);
     if (config.NODE_ENV === 'production') {
