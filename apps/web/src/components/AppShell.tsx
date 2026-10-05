@@ -8,9 +8,11 @@ interface AppShellProps {
   children: React.ReactNode;
   currentPath: string;
   onNavigate: (path: string) => void;
+  userName?: string;
+  onLogout?: () => void;
 }
 
-export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
+export function AppShell({ children, currentPath, onNavigate, userName, onLogout }: AppShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const toggleSidebar = useCallback(() => setSidebarCollapsed((c) => !c), []);
 
@@ -23,7 +25,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         onNavigate={onNavigate}
       />
       <View style={[styles.main, sidebarCollapsed && styles.mainCollapsed]}>
-        <TopBar collapsed={sidebarCollapsed} onToggleSidebar={toggleSidebar} />
+        <TopBar collapsed={sidebarCollapsed} onToggleSidebar={toggleSidebar} userName={userName} onLogout={onLogout} />
         <View style={styles.content}>{children}</View>
       </View>
     </View>

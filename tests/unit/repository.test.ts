@@ -19,7 +19,7 @@ interface TestDoc extends mongoose.Document {
   updatedAt: Date;
 }
 
-let mongod: MongoMemoryServer;
+let mongod: MongoMemoryServer | undefined;
 
 const testSchema = new Schema<TestDoc>(
   {
@@ -48,17 +48,33 @@ const ctxB: TenantContext = { tenantId: 'tenant-B', userId: 'user-2' };
 
 describe('BaseRepository — tenant isolation & ops', () => {
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    process.env.MONGODB_URI = mongod.getUri();
+    const testMongoUri = process.env.TEST_MONGO_URI;
+
+    if (testMongoUri) {
+      process.env.MONGODB_URI = testMongoUri;
+    } else {
+      mongod = await MongoMemoryServer.create();
+      process.env.MONGODB_URI = mongod.getUri();
+    }
+
     process.env.MONGODB_DATABASE = 'test_repo';
     process.env.NODE_ENV = 'test';
+
     __resetConfigForTests();
+
+    await disconnectMongo().catch(() => {});
     await connectMongo();
+
+    await TestModel.deleteMany({});
   });
   afterAll(async () => {
     await TestModel.deleteMany({});
     await disconnectMongo();
-    await mongod.stop();
+
+    if (mongod) {
+      await mongod.stop();
+    }
+
     __resetConfigForTests();
   });
   beforeEach(async () => { await TestModel.deleteMany({}); });

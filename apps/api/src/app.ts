@@ -7,10 +7,18 @@ import { traceMiddleware } from './middleware/trace';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { healthRouter } from './routes/health';
-import { buildAuthMiddleware, buildIdentityDeps, createAuthRouter, createMeRouter, createUsersRouter } from './modules/identity/presentation/routes';
+import {
+  buildAuthMiddleware,
+  buildIdentityDeps,
+  createAuthRouter,
+  createMeRouter,
+  createUsersRouter,
+} from './modules/identity/presentation/routes';
+import type { RegisterDeps } from './modules/identity/application/usecases';
+import { buildInventoryDeps, createInventoryRouter } from './modules/inventory/presentation/routes';
 import { openApiSpec } from './openapi';
 
-export function createApp() {
+export function createApp(identityDeps?: RegisterDeps) {
   const app = express();
   const config = getConfig();
 
@@ -40,11 +48,15 @@ export function createApp() {
   app.use('/health', healthRouter);
 
   // Identity (Phase 3A): auth + users, tenant-scoped, backend as final authority
-  const identityDeps = buildIdentityDeps();
-  const authMiddleware = buildAuthMiddleware(identityDeps);
-  app.use('/api/v1/auth', createAuthRouter(identityDeps, authMiddleware));
-  app.use('/api/v1', createMeRouter(identityDeps, authMiddleware));
-  app.use('/api/v1/users', createUsersRouter(identityDeps, authMiddleware));
+  const resolvedIdentityDeps = identityDeps ?? buildIdentityDeps();
+  const authMiddleware = buildAuthMiddleware(resolvedIdentityDeps);
+  app.use('/api/v1/auth', createAuthRouter(resolvedIdentityDeps, authMiddleware));
+  app.use('/api/v1', createMeRouter(resolvedIdentityDeps, authMiddleware));
+  app.use('/api/v1/users', createUsersRouter(resolvedIdentityDeps, authMiddleware));
+
+  // Inventory (Phase 1): products, categories, warehouses, stock, movements
+  const inventoryDeps = buildInventoryDeps();
+  app.use('/api/v1/inventory', createInventoryRouter(inventoryDeps, authMiddleware));
 
   // Placeholder for future modules - illustrates versioned, resource-oriented routing
   // Example: app.use('/api/v1/customers', customersRouter);

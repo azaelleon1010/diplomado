@@ -55,12 +55,15 @@ export interface CreateUserData {
   createdBy: string;
 }
 
+/** Opaque transaction handle (see tenant/domain/ports.ts TxSession). */
+export type TxSession = unknown;
+
 export interface IUserStore {
-  findById(tenantId: string, id: string): Promise<UserWithCredentials | null>;
-  findByEmail(tenantId: string, email: string): Promise<UserWithCredentials | null>;
+  findById(tenantId: string, id: string, session?: TxSession): Promise<UserWithCredentials | null>;
+  findByEmail(tenantId: string, email: string, session?: TxSession): Promise<UserWithCredentials | null>;
   /** Identity resolution only (login): searches across tenants, never for data access. */
   findByEmailAnyTenant(email: string): Promise<UserWithCredentials[]>;
-  create(data: CreateUserData): Promise<UserWithCredentials>;
+  create(data: CreateUserData, session?: TxSession): Promise<UserWithCredentials>;
   setStatus(tenantId: string, id: string, status: User['status'], updatedBy: string): Promise<UserWithCredentials | null>;
   list(tenantId: string, page: number, limit: number): Promise<{ data: User[]; total: number; page: number; limit: number; totalPages: number }>;
 }
@@ -69,26 +72,26 @@ export interface IRoleStore {
   findById(tenantId: string, id: string): Promise<Role | null>;
   findByIds(tenantId: string, ids: string[]): Promise<Role[]>;
   findByName(tenantId: string, name: string): Promise<Role | null>;
-  create(data: { tenantId: string; name: string; description?: string; permissions: string[]; createdBy: string }): Promise<Role>;
+  create(data: { tenantId: string; name: string; description?: string; permissions: string[]; createdBy: string }, session?: TxSession): Promise<Role>;
   list(tenantId: string): Promise<Role[]>;
 }
 
 export interface IMembershipStore {
   findByUserAndTenant(userId: string, tenantId: string): Promise<Membership | null>;
   findActiveByUser(userId: string): Promise<Membership[]>;
-  create(data: { tenantId: string; organizationId?: string; branchId?: string; userId: string; roleIds: string[]; createdBy: string }): Promise<Membership>;
+  create(data: { tenantId: string; organizationId?: string; branchId?: string; userId: string; roleIds: string[]; createdBy: string }, session?: TxSession): Promise<Membership>;
   setRoles(tenantId: string, membershipId: string, roleIds: string[], updatedBy: string): Promise<Membership | null>;
 }
 
 export interface ISessionStore {
-  create(data: { tenantId: string; userId: string; sessionId: string; tokenHash: string; expiresAt: Date }): Promise<RefreshSession>;
+  create(data: { tenantId: string; userId: string; sessionId: string; tokenHash: string; expiresAt: Date }, session?: TxSession): Promise<RefreshSession>;
   findBySessionId(sessionId: string): Promise<RefreshSession | null>;
   revoke(sessionId: string): Promise<void>;
   revokeAllForUser(tenantId: string, userId: string): Promise<void>;
 }
 
 export interface IAuditSink {
-  record(event: Omit<AuditEvent, '_id' | 'createdAt'>): Promise<void>;
+  record(event: Omit<AuditEvent, '_id' | 'createdAt'>, session?: TxSession): Promise<void>;
 }
 
 /** Request-scoped identity context built by authenticate middleware. */
@@ -97,3 +100,6 @@ export interface RequestIdentity {
   tenantId: string;
   sessionId: string;
 }
+
+/** Injectable transaction runner (defaults to withTransaction in the use case). */
+export type TxRunner = <T>(fn: (session: TxSession) => Promise<T>) => Promise<T>;

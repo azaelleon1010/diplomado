@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,10 +18,13 @@ import { radii, spacing, typography } from '../theme/tokens';
 import { Button } from '../components/Button';
 import { StatusBadge } from '../components/StatusBadge';
 import { Icon } from '../components/Icon';
+import type { RootStackParamList } from '../navigation/types';
 
 export function LoginScreen(): React.JSX.Element {
+   const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList, 'Login'>>();
   const { palette } = useTheme();
-  const { signIn } = useAuth();
+  const { signIn, loading, error, clearError } = useAuth();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -78,11 +83,39 @@ export function LoginScreen(): React.JSX.Element {
           </View>
 
           <View style={styles.loginButton}>
-            <Button label="Iniciar sesión" onPress={signIn} />
+            <Button
+              label={loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+              onPress={() => {
+                clearError();
+                void signIn(email, password);
+              }}
+            />
           </View>
 
-          <Pressable accessibilityRole="button" accessibilityLabel="Recuperar contraseña">
-            <Text style={[styles.forgot, { color: palette.textSecondary }]}>¿Olvidaste tu contraseña?</Text>
+          {error ? (
+            <Text style={[styles.error, { color: palette.danger }]}>
+              {error}
+            </Text>
+          ) : null}
+
+          <Pressable
+            onPress={() => {
+              clearError();
+              navigation.navigate('Register');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Crear una cuenta">
+            <Text style={[styles.registerLink, { color: palette.accent }]}>
+              ¿No tienes una cuenta? Crear una cuenta
+            </Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Recuperar contraseña">
+            <Text style={[styles.forgot, { color: palette.textSecondary }]}>
+              ¿Olvidaste tu contraseña?
+            </Text>
           </Pressable>
         </View>
 
@@ -175,6 +208,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.md,
   },
+    registerLink: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: spacing.lg,
+  },
   envRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -191,5 +230,10 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: typography.caption.fontSize,
     textAlign: 'center',
+  },
+  error: {
+    fontSize: typography.bodySmall.fontSize,
+    textAlign: 'center',
+    marginTop: spacing.md,
   },
 });

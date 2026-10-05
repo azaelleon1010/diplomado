@@ -5,6 +5,11 @@ import { MetricCard } from './MetricCard';
 
 interface DashboardProps {
   currentPath: string;
+  session?: {
+    userName: string;
+    email: string;
+    tenantName: string;
+  } | null;
 }
 
 // MOCK DATA - explícitamente identificado como datos de demostración
@@ -17,7 +22,7 @@ const MOCK_KPIs = [
   { label: 'Almacén ocupado', value: '82%', subtitle: 'capacidad', trend: 'neutral' as const },
 ];
 
-export function Dashboard({ currentPath }: DashboardProps) {
+export function Dashboard({ currentPath, session }: DashboardProps) {
   const t = useTheme();
 
   return (
@@ -29,6 +34,15 @@ export function Dashboard({ currentPath }: DashboardProps) {
         </View>
         <Text style={styles.badge}>MOCK DATA</Text>
       </View>
+
+      {session ? (
+        <View style={styles.sessionBar}>
+          <View style={styles.sessionDot} />
+          <Text style={styles.sessionText}>
+            {session.userName} · {session.email} · {session.tenantName}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.kpiGrid}>
         {MOCK_KPIs.map((kpi) => (
@@ -149,5 +163,27 @@ const styles = StyleSheet.create({
     color: '#00FFCC',
     fontSize: 10,
     marginTop: 4,
+  },
+  sessionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2F4F4F',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 24,
+    gap: 8,
+  },
+  sessionDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00FFCC',
+  },
+  sessionText: {
+    color: '#F1F5F9',
+    fontSize: 13,
   },
 });

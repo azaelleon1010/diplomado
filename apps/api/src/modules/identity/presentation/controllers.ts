@@ -3,7 +3,7 @@
  * Business rules live in Application; errors flow to the global errorHandler.
  */
 import type { NextFunction, Request, Response } from 'express';
-import type { ActorContext, IdentityDeps } from '../application/usecases';
+import type { ActorContext, IdentityDeps, RegisterDeps } from '../application/usecases';
 import {
   assignRole,
   createUser,
@@ -13,8 +13,9 @@ import {
   login,
   logout,
   refresh,
+  register,
 } from '../application/usecases';
-import { assignRoleSchema, createUserSchema, idParamSchema, loginSchema, refreshSchema, usersQuerySchema } from './schemas';
+import { assignRoleSchema, createUserSchema, idParamSchema, loginSchema, refreshSchema, registerSchema, usersQuerySchema } from './schemas';
 
 function actorOf(req: Request): ActorContext {
   return {
@@ -30,8 +31,18 @@ function ok(res: Response, req: Request, data: unknown, status = 200, meta?: Rec
   res.status(status).json({ success: true, data, ...(meta ? { meta } : {}), traceId: req.traceId });
 }
 
-export function createAuthController(deps: IdentityDeps) {
+export function createAuthController(deps: RegisterDeps) {
   return {
+    async postRegister(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const dto = registerSchema.parse(req.body);
+        const result = await register({ ...dto, correlationId: req.traceId }, deps);
+        ok(res, req, result, 201);
+      } catch (err) {
+        next(err);
+      }
+    },
+
     async postLogin(req: Request, res: Response, next: NextFunction): Promise<void> {
       try {
         const dto = loginSchema.parse(req.body);

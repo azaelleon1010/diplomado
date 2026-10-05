@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Dashboard } from '../components/Dashboard';
 import { AssistantPanel } from '../components/AssistantPanel';
 import { ModulePlaceholder } from '../screens/ModulePlaceholder';
+import { LoginScreen } from '../screens/Login';
+import { RegisterScreen } from '../screens/Register';
 
 const ROUTES: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -49,8 +51,18 @@ export function useNavigation() {
   return { path, navigate };
 }
 
-export function renderRoute(path: string) {
-  if (path === '/dashboard') return <Dashboard currentPath={path} />;
+export const PUBLIC_ROUTES = ['/login', '/register'];
+
+export interface DashboardSession {
+  userName: string;
+  email: string;
+  tenantName: string;
+}
+
+export function renderRoute(path: string, onNavigate: (target: string) => void, session?: DashboardSession | null) {
+  if (path === '/login') return <LoginScreen onNavigate={onNavigate} />;
+  if (path === '/register') return <RegisterScreen onNavigate={onNavigate} />;
+  if (path === '/dashboard') return <Dashboard currentPath={path} session={session} />;
   if (path === '/assistant') return <AssistantPanel />;
   const moduleName = ROUTES[path];
   if (moduleName) return <ModulePlaceholder moduleName={moduleName} />;

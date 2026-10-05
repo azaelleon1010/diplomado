@@ -6,10 +6,16 @@
 
 export const PERMISSIONS = {
   INVENTORY_READ: 'inventory.read',
+  INVENTORY_CREATE: 'inventory.create',
+  INVENTORY_UPDATE: 'inventory.update',
+  INVENTORY_DELETE: 'inventory.delete',
   INVENTORY_WRITE: 'inventory.write',
   INVENTORY_WITHDRAW: 'inventory.withdraw',
   INVENTORY_TRANSFER: 'inventory.transfer',
   INVENTORY_ADJUST: 'inventory.adjust',
+  INVENTORY_STOCK_IN: 'inventory.stock.in',
+  INVENTORY_STOCK_OUT: 'inventory.stock.out',
+  INVENTORY_STOCK_ADJUST: 'inventory.stock.adjust',
   MAINTENANCE_CREATE: 'maintenance.create',
   MAINTENANCE_ASSIGN: 'maintenance.assign',
   PRODUCTION_READ: 'production.read',

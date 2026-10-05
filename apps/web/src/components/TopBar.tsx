@@ -5,9 +5,11 @@ import { useTheme } from '../theme/Theme';
 interface TopBarProps {
   collapsed: boolean;
   onToggleSidebar: () => void;
+  userName?: string;
+  onLogout?: () => void;
 }
 
-export function TopBar({ collapsed, onToggleSidebar }: TopBarProps) {
+export function TopBar({ collapsed, onToggleSidebar, userName, onLogout }: TopBarProps) {
   return (
     <View style={styles.topBar}>
       <View style={styles.left}>
@@ -30,7 +32,18 @@ export function TopBar({ collapsed, onToggleSidebar }: TopBarProps) {
         >
           <Text style={styles.statusDotGreen}>●</Text>
         </TouchableOpacity>
-        <Text style={styles.userName}>Operador</Text>
+        <Text style={styles.userName}>{userName ?? 'Operador'}</Text>
+        {onLogout ? (
+          <TouchableOpacity
+            onPress={onLogout}
+            style={styles.logoutButton}
+            accessible
+            accessibilityLabel="Cerrar sesión"
+            accessibilityRole="button"
+          >
+            <Text style={styles.logoutText}>Salir</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );
@@ -79,5 +92,17 @@ const styles = StyleSheet.create({
   userName: {
     color: '#94A3B8',
     fontSize: 13,
+  },
+  logoutButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  logoutText: {
+    color: '#F1F5F9',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

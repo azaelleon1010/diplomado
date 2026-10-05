@@ -39,6 +39,8 @@ const rawSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(10),
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM_EMAIL: z.string().email().optional(),
   ENCRYPTION_KEY: z.string().min(16).default('change-me-32-chars-encryption-key!!'),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:3001'),

@@ -7,12 +7,14 @@
  * generic base signatures.
  */
 import { BaseRepository, mapMongoError, type TenantContext } from '@erp/database';
+import type { ClientSession } from 'mongoose';
 import type {
   IAuditSink,
   IMembershipStore,
   IRoleStore,
   ISessionStore,
   IUserStore,
+  TxSession,
   CreateUserData,
 } from '../domain/ports';
 import type { Membership, RefreshSession, Role, UserWithCredentials, User } from '../domain/entities';
@@ -101,14 +103,18 @@ const USER_SORT_FIELDS = ['createdAt', 'updatedAt', 'email', 'username'];
 export class MongoUserStore implements IUserStore {
   private readonly base = new UserBaseRepo(UserModel);
 
-  async findById(tenantId: string, id: string): Promise<UserWithCredentials | null> {
+  async findById(tenantId: string, id: string, session?: TxSession): Promise<UserWithCredentials | null> {
     // passwordHash has select:false — explicitly include it for auth flows.
-    const doc = await UserModel.findOne({ tenantId, _id: id }).select('+passwordHash').exec().catch((err) => { throw mapMongoError(err); });
+    const query = UserModel.findOne({ tenantId, _id: id }).select('+passwordHash');
+    if (session) query.session(session as ClientSession);
+    const doc = await query.exec().catch((err) => { throw mapMongoError(err); });
     return doc ? toUser(doc) : null;
   }
 
-  async findByEmail(tenantId: string, email: string): Promise<UserWithCredentials | null> {
-    const doc = await UserModel.findOne({ tenantId, email: email.toLowerCase() }).select('+passwordHash').exec().catch((err) => { throw mapMongoError(err); });
+  async findByEmail(tenantId: string, email: string, session?: TxSession): Promise<UserWithCredentials | null> {
+    const query = UserModel.findOne({ tenantId, email: email.toLowerCase() }).select('+passwordHash');
+    if (session) query.session(session as ClientSession);
+    const doc = await query.exec().catch((err) => { throw mapMongoError(err); });
     return doc ? toUser(doc) : null;
   }
 
@@ -118,7 +124,7 @@ export class MongoUserStore implements IUserStore {
     return docs.map(toUser);
   }
 
-  async create(data: CreateUserData): Promise<UserWithCredentials> {
+  async create(data: CreateUserData, session?: TxSession): Promise<UserWithCredentials> {
     const created = await this.base.create(
       {
         username: data.username,
@@ -129,8 +135,9 @@ export class MongoUserStore implements IUserStore {
         status: 'ACTIVE',
       },
       { tenantId: data.tenantId, userId: data.createdBy },
+      session as ClientSession | undefined,
     );
-    const withHash = await this.findById(data.tenantId, oid(created._id));
+    const withHash = await this.findById(data.tenantId, oid(created._id), session);
     if (!withHash) throw new Error('User creation failed');
     return withHash;
   }
@@ -146,7 +153,8 @@ export class MongoUserStore implements IUserStore {
     const result = await this.base.findMany({}, sysCtx(tenantId), { page, limit, sortBy: 'createdAt', sortOrder: 'desc' }, undefined, { allowedSortFields: USER_SORT_FIELDS });
     return {
       data: result.data.map((d) => {
-        const { passwordHash: _omit, ...safe } = toUser(d);
+        const { passwordHash, ...safe } = toUser(d);
+        void passwordHash;
         return safe;
       }),
       total: result.total,
@@ -184,10 +192,11 @@ export class MongoRoleStore implements IRoleStore {
     }
   }
 
-  async create(data: { tenantId: string; name: string; description?: string; permissions: string[]; createdBy: string }): Promise<Role> {
+  async create(data: { tenantId: string; name: string; description?: string; permissions: string[]; createdBy: string }, session?: TxSession): Promise<Role> {
     const created = await this.base.create(
       { name: data.name, description: data.description, permissions: data.permissions, status: 'ACTIVE' },
       { tenantId: data.tenantId, userId: data.createdBy },
+      session as ClientSession | undefined,
     );
     return toRole(created);
   }
@@ -223,7 +232,7 @@ export class MongoMembershipStore implements IMembershipStore {
     }
   }
 
-  async create(data: { tenantId: string; organizationId?: string; branchId?: string; userId: string; roleIds: string[]; createdBy: string }): Promise<Membership> {
+  async create(data: { tenantId: string; organizationId?: string; branchId?: string; userId: string; roleIds: string[]; createdBy: string }, session?: TxSession): Promise<Membership> {
     const created = await this.base.create(
       {
         organizationId: data.organizationId,
@@ -233,6 +242,7 @@ export class MongoMembershipStore implements IMembershipStore {
         status: 'ACTIVE',
       },
       { tenantId: data.tenantId, organizationId: data.organizationId, branchId: data.branchId, userId: data.createdBy },
+      session as ClientSession | undefined,
     );
     return toMembership(created);
   }
@@ -246,9 +256,9 @@ export class MongoMembershipStore implements IMembershipStore {
 }
 
 export class MongoSessionStore implements ISessionStore {
-  async create(data: { tenantId: string; userId: string; sessionId: string; tokenHash: string; expiresAt: Date }): Promise<RefreshSession> {
+  async create(data: { tenantId: string; userId: string; sessionId: string; tokenHash: string; expiresAt: Date }, session?: TxSession): Promise<RefreshSession> {
     try {
-      const created = await RefreshSessionModel.create({
+      const [created] = await RefreshSessionModel.create([{
         tenantId: data.tenantId,
         userId: data.userId,
         sessionId: data.sessionId,
@@ -258,7 +268,7 @@ export class MongoSessionStore implements ISessionStore {
         createdBy: data.userId,
         updatedBy: data.userId,
         version: 1,
-      });
+      }], session ? { session: session as ClientSession } : {});
       return toSession(created);
     } catch (err) {
       throw mapMongoError(err);
@@ -293,7 +303,7 @@ export class MongoSessionStore implements ISessionStore {
 }
 
 export class MongoAuditSink implements IAuditSink {
-  async record(event: { tenantId: string; userId?: string; action: string; entityType?: string; entityId?: string; before?: Record<string, unknown>; after?: Record<string, unknown>; result: 'SUCCESS' | 'FAILURE'; correlationId?: string }): Promise<void> {
+  async record(event: { tenantId: string; userId?: string; action: string; entityType?: string; entityId?: string; before?: Record<string, unknown>; after?: Record<string, unknown>; result: 'SUCCESS' | 'FAILURE'; correlationId?: string }, session?: TxSession): Promise<void> {
     try {
       const doc: Partial<AuditEventDoc> = {
         tenantId: event.tenantId,
@@ -309,7 +319,7 @@ export class MongoAuditSink implements IAuditSink {
         updatedBy: event.userId ?? 'system',
         version: 1,
       };
-      await AuditEventModel.create(doc);
+      await AuditEventModel.create([doc], session ? { session: session as ClientSession } : {});
     } catch {
       // Audit must never break the business flow; failure is logged by the caller context.
     }

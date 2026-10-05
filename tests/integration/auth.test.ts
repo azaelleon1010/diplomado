@@ -8,6 +8,7 @@ import { createApp } from '../../apps/api/src/app';
 import { buildIdentityDeps } from '../../apps/api/src/modules/identity/presentation/routes';
 import { identityModels } from '../../apps/api/src/modules/identity/infrastructure/models';
 import type { IdentityDeps } from '../../apps/api/src/modules/identity/application/usecases';
+import type { IEmailProvider } from '../../apps/api/src/modules/notifications/domain/ports';
 import type { Express } from 'express';
 
 let mongod: MongoMemoryServer;
@@ -42,6 +43,10 @@ let adminAccessB = '';
 let userIdB = '';
 
 describe('Auth integration: login → refresh → /me → logout', () => {
+  const testEmailProvider: IEmailProvider = {
+    async sendWelcomeEmail() {},
+  };
+
   beforeAll(async () => {
     // Local Atlas verification: TEST_MONGO_URI skips mongodb-memory-server
     // (binary download unavailable in this environment).
@@ -55,12 +60,34 @@ describe('Auth integration: login → refresh → /me → logout', () => {
     process.env.NODE_ENV = 'test';
     process.env.JWT_SECRET = 'integration-test-secret-32-chars-min!!';
     process.env.BCRYPT_ROUNDS = '4';
+
+    // Tests de integración no deben depender de Resend.
+    delete process.env.RESEND_FROM_EMAIL;
+    delete process.env.RESEND_API_KEY;
+
     __resetConfigForTests();
     await disconnectMongo().catch(() => {});
     await connectMongo();
     await ensureIndexes(identityModels);
-    deps = buildIdentityDeps();
-    app = createApp();
+
+    // Atlas persiste entre ejecuciones; limpiamos únicamente los tenants
+    // utilizados por esta suite de integración.
+    const cleanModels = [
+      identityModels[0], // users
+      identityModels[1], // roles
+      identityModels[2], // memberships
+      identityModels[3], // refreshSessions
+      identityModels[4], // auditEvents
+    ];
+
+    for (const model of cleanModels) {
+      await model.deleteMany({
+        tenantId: { $in: [TENANT_A, TENANT_B] },
+      });
+    }
+
+    deps = buildIdentityDeps(testEmailProvider);
+    app = createApp(deps);
 
     const adminRoleA = await createRole(TENANT_A, 'admin', ['system.users.read', 'system.users.write']);
     await createUserWithRoles(TENANT_A, 'admin@a.mx', 'AdminPass1', [adminRoleA._id]);

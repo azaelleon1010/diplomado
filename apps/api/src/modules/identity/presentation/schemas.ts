@@ -45,6 +45,26 @@ export const assignRoleSchema = z
 
 export type AssignRoleDto = z.infer<typeof assignRoleSchema>;
 
+const usernameRule = z
+  .string()
+  .trim()
+  .min(3)
+  .max(64)
+  .regex(/^[a-zA-Z0-9._-]+$/, 'Username may only contain letters, numbers, dots, underscores and dashes');
+
+export const registerSchema = z
+  .object({
+    companyName: z.string().trim().min(2).max(200),
+    username: usernameRule,
+    email: z.string().trim().min(1).max(254).email(),
+    password: z.string().min(8).max(128),
+    firstName: z.string().trim().max(100).optional(),
+    lastName: z.string().trim().max(100).optional(),
+  })
+  .strict();
+
+export type RegisterDto = z.infer<typeof registerSchema>;
+
 export const usersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

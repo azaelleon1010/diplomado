@@ -82,6 +82,8 @@ export interface MembershipDoc extends mongoose.Document {
 const membershipSchema = new Schema<MembershipDoc>(
   {
     ...(baseFields as Record<string, unknown>),
+    organizationId: { type: String, trim: true, maxlength: 120 },
+    branchId: { type: String, trim: true, maxlength: 120 },
     userId: { type: String, required: true, trim: true },
     roleIds: { type: [String], default: [] },
     status: { type: String, enum: ['ACTIVE', 'DISABLED'], default: 'ACTIVE' },

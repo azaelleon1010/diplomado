@@ -3,27 +3,34 @@
  * Routers are built from explicit dependencies (no service locator).
  */
 import { Router } from 'express';
-import type { IdentityDeps } from '../application/usecases';
+import type { IdentityDeps, RegisterDeps } from '../application/usecases';
+import type { ITenantStore } from '../../tenant/domain/ports';
 import { PERMISSIONS } from '../domain/permissions';
 import { BcryptHasher } from '../infrastructure/hasher';
 import { MongoAuditSink, MongoMembershipStore, MongoRoleStore, MongoSessionStore, MongoUserStore } from '../infrastructure/repositories';
+import { MongoTenantStore } from '../../tenant/infrastructure/repositories';
 import { JwtIssuer } from '../infrastructure/tokens';
 import { createAuthController, createUsersController } from './controllers';
 import { authenticate, requirePermission, requireTenant, type AuthMiddlewareDeps } from './middleware';
+import { ResendEmailProvider } from '../../notifications/infrastructure/resend';
 
-export function buildIdentityDeps(): IdentityDeps {
+export function buildIdentityDeps(emailProvider = new ResendEmailProvider()): RegisterDeps {
   const users = new MongoUserStore();
   const roles = new MongoRoleStore();
   const memberships = new MongoMembershipStore();
   const sessions = new MongoSessionStore();
+  const tenants: ITenantStore = new MongoTenantStore();
+
   return {
     users,
     roles,
     memberships,
     sessions,
+    tenants,
     audit: new MongoAuditSink(),
     hasher: new BcryptHasher(),
     tokens: new JwtIssuer(),
+    emailProvider,
   };
 }
 
@@ -31,10 +38,11 @@ export function buildAuthMiddleware(deps: IdentityDeps): AuthMiddlewareDeps {
   return { tokens: deps.tokens, sessions: deps.sessions, memberships: deps.memberships, roles: deps.roles };
 }
 
-/** POST /login, POST /refresh (public). POST /logout (protected). */
-export function createAuthRouter(deps: IdentityDeps, auth: AuthMiddlewareDeps) {
+/** POST /login, POST /refresh, POST /register (public). POST /logout (protected). */
+export function createAuthRouter(deps: RegisterDeps, auth: AuthMiddlewareDeps) {
   const router = Router();
   const controller = createAuthController(deps);
+  router.post('/register', controller.postRegister);
   router.post('/login', controller.postLogin);
   router.post('/refresh', controller.postRefresh);
   router.post('/logout', authenticate(auth), requireTenant(), controller.postLogout);
@@ -42,7 +50,7 @@ export function createAuthRouter(deps: IdentityDeps, auth: AuthMiddlewareDeps) {
 }
 
 /** GET /me (protected). Mounted at /api/v1. */
-export function createMeRouter(deps: IdentityDeps, auth: AuthMiddlewareDeps) {
+export function createMeRouter(deps: RegisterDeps, auth: AuthMiddlewareDeps) {
   const router = Router();
   const controller = createAuthController(deps);
   router.get('/me', authenticate(auth), requireTenant(), controller.getMe);
@@ -50,7 +58,7 @@ export function createMeRouter(deps: IdentityDeps, auth: AuthMiddlewareDeps) {
 }
 
 /** Administrative user management. Mounted at /api/v1/users. */
-export function createUsersRouter(deps: IdentityDeps, auth: AuthMiddlewareDeps) {
+export function createUsersRouter(deps: RegisterDeps, auth: AuthMiddlewareDeps) {
   const router = Router();
   const controller = createUsersController(deps);
   const guard = [authenticate(auth), requireTenant()];

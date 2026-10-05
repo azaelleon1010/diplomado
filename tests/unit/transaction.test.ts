@@ -6,23 +6,37 @@ import { connectMongo, disconnectMongo } from '../../packages/database/src/conne
 import { withTransaction } from '../../packages/database/src/transaction';
 import { baseFields, baseOptions } from '../../packages/database/src/base';
 
-let replSet: MongoMemoryReplSet;
+let replSet: MongoMemoryReplSet | undefined;
 
 interface Doc extends mongoose.Document { tenantId: string; amount: number; version: number; createdBy: string; updatedBy: string; _id: mongoose.Types.ObjectId; }
 
 describe('transactions — Atlas-ready infrastructure', () => {
   beforeAll(async () => {
     await disconnectMongo().catch(() => {});
-    replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-    process.env.MONGODB_URI = replSet.getUri();
+
+    const testMongoUri = process.env.TEST_MONGO_URI;
+
+    if (testMongoUri) {
+      process.env.MONGODB_URI = testMongoUri;
+    } else {
+      replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+      process.env.MONGODB_URI = replSet.getUri();
+    }
+
     process.env.MONGODB_DATABASE = 'test_tx';
     process.env.NODE_ENV = 'test';
+
     __resetConfigForTests();
+
     await connectMongo();
   });
   afterAll(async () => {
     await disconnectMongo();
-    await replSet.stop();
+
+    if (replSet) {
+      await replSet.stop();
+    }
+
     __resetConfigForTests();
   });
 

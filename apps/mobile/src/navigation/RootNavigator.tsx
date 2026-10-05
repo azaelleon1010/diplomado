@@ -8,6 +8,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { MainTabs } from './MainTabs';
 import { ProductionDetailScreen } from '../screens/ProductionDetailScreen';
 import { AlertDetailScreen } from '../screens/AlertDetailScreen';
+import { RegisterScreen } from '../screens/RegisterScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -39,7 +40,10 @@ export function RootNavigator(): React.JSX.Element {
             <Stack.Screen name="AlertDetail" component={AlertDetailScreen} />
           </>
         ) : (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>

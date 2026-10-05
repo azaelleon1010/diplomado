@@ -87,8 +87,10 @@ export interface AuditEvent {
 export const AUTH_ACTIONS = {
   LOGIN_SUCCESS: 'auth.login.success',
   LOGIN_FAILURE: 'auth.login.failure',
+  REGISTER_SUCCESS: 'auth.register.success',
   REFRESH: 'auth.refresh',
   LOGOUT: 'auth.logout',
+  TENANT_CREATED: 'tenants.created',
   USER_CREATED: 'users.created',
   ROLE_ASSIGNED: 'memberships.roleAssigned',
 } as const;

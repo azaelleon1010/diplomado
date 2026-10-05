@@ -1,7 +1,7 @@
 import { getConfig } from '@erp/config';
 import { createApp } from './app';
 import { classifyMongoError, connectMongo, disconnectMongo, ensureIndexes } from '@erp/database';
-import { identityModels } from './modules/identity/infrastructure/models';
+import { applicationModels } from './infrastructure/models';
 import { getRedis, disconnectRedis } from './db/redis';
 import { logger } from './lib/logger';
 
@@ -18,8 +18,8 @@ async function bootstrap() {
     // Identity indexes must exist before serving traffic (explicit sync;
     // autoIndex stays off in production).
     try {
-      await ensureIndexes(identityModels);
-      logger.info('identity indexes ensured');
+      await ensureIndexes(applicationModels);
+      logger.info('application indexes ensured');
     } catch (err) {
       if (config.NODE_ENV === 'production') {
         logger.fatal({ err: (err as Error).message }, 'index sync failed — refusing to start in production');

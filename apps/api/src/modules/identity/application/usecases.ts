@@ -3,9 +3,12 @@
  * No Express, no Mongoose here.
  */
 import { AppError, forbidden, unauthorized } from '@erp/errors';
-import { randomUUID } from 'node:crypto';
+import { withTransaction } from '@erp/database';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { AUTH_ACTIONS, sanitizeForAudit, type AuditResult, type User } from '../domain/entities';
-import { resolvePermissions } from '../domain/permissions';
+import { ALL_PERMISSIONS, resolvePermissions } from '../domain/permissions';
+import type { ITenantStore } from '../../tenant/domain/ports';
+import type { IEmailProvider } from '../../notifications/domain/ports';
 import type {
   IAuditSink,
   IMembershipStore,
@@ -14,6 +17,8 @@ import type {
   ISessionStore,
   ITokenIssuer,
   IUserStore,
+  TxRunner,
+  TxSession,
 } from '../domain/ports';
 
 export interface IdentityDeps {
@@ -24,6 +29,14 @@ export interface IdentityDeps {
   audit: IAuditSink;
   hasher: IPasswordHasher;
   tokens: ITokenIssuer;
+}
+
+/** Extended deps for registration (needs the tenant store). */
+export interface RegisterDeps extends IdentityDeps {
+  tenants: ITenantStore;
+  emailProvider: IEmailProvider;
+  /** Defaults to withTransaction; injectable for unit tests. */
+  tx?: TxRunner;
 }
 
 export interface ActorContext {
@@ -308,4 +321,159 @@ export async function getUserById(ctx: ActorContext, id: string, deps: IdentityD
   const user = await deps.users.findById(ctx.tenantId, id);
   if (!user) throw new AppError({ code: 'NOT_FOUND', message: 'User not found', statusCode: 404 });
   return toSafeUser(user);
+}
+
+export interface RegisterInput {
+  companyName: string;
+  username: string;
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  correlationId?: string;
+}
+
+/** Server-generated tenant id. Never accepted from the client. */
+function generateTenantId(): string {
+  return `tnt_${randomBytes(8).toString('hex')}`;
+}
+
+/** Normalize company name into a URL-safe slug using only Node builtins. */
+export function slugifyCompanyName(companyName: string): string {
+  const slug = companyName
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+    .slice(0, 60);
+  return slug || 'empresa';
+}
+
+/** Resolve slug collisions deterministically with a short suffix. */
+async function uniqueSlug(tenants: ITenantStore, companyName: string): Promise<string> {
+  const base = slugifyCompanyName(companyName);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = attempt === 0 ? base : `${base}-${randomBytes(2).toString('hex')}`;
+    const existing = await tenants.findBySlug(candidate);
+    if (!existing) return candidate;
+  }
+  // Astronomically unlikely fallback: timestamp suffix.
+  return `${base}-${Date.now().toString(36)}`;
+}
+
+/**
+ * Register a new company: Tenant + owner Role + User + Membership + Session
+ * created atomically inside a single MongoDB transaction.
+ */
+export async function register(input: RegisterInput, deps: RegisterDeps) {
+  const companyName = input.companyName.trim();
+  const username = input.username.trim();
+  const email = input.email.trim().toLowerCase();
+  if (input.password.length < 8) {
+    throw new AppError({ code: 'VALIDATION_ERROR', message: 'Password must be at least 8 characters', statusCode: 400 });
+  }
+
+  const tenantId = generateTenantId();
+  const slug = await uniqueSlug(deps.tenants, companyName);
+  const runTx: TxRunner = deps.tx ?? ((fn) => withTransaction((session) => fn(session as TxSession)));
+
+  const result = await runTx(async (session) => {
+    const tenant = await deps.tenants.create(
+      { tenantId, name: companyName, slug, createdBy: email },
+      session,
+    );
+
+    const role = await deps.roles.create(
+      {
+        tenantId,
+        name: 'owner',
+        description: 'Propietario de la empresa con permisos completos',
+        permissions: [...ALL_PERMISSIONS],
+        createdBy: email,
+      },
+      session,
+    );
+
+    const duplicate = await deps.users.findByEmail(tenantId, email, session);
+    if (duplicate) {
+      throw new AppError({ code: 'CONFLICT', message: 'Duplicate value for email', statusCode: 409, fields: { duplicateFields: { email } } });
+    }
+
+    const passwordHash = await deps.hasher.hash(input.password);
+    const created = await deps.users.create(
+      {
+        tenantId,
+        username,
+        email,
+        passwordHash,
+        firstName: input.firstName?.trim(),
+        lastName: input.lastName?.trim(),
+        createdBy: email,
+      },
+      session,
+    );
+
+    const membership = await deps.memberships.create(
+      { tenantId, userId: created._id, roleIds: [role._id], createdBy: created._id },
+      session,
+    );
+
+    const sessionId = randomUUID();
+    const issued = deps.tokens.issueRefresh({ userId: created._id, tenantId, sessionId });
+    await deps.sessions.create(
+      {
+        tenantId,
+        userId: created._id,
+        sessionId,
+        tokenHash: deps.tokens.hashToken(issued.token),
+        expiresAt: issued.expiresAt,
+      },
+      session,
+    );
+    const accessToken = deps.tokens.issueAccess({ userId: created._id, tenantId, sessionId });
+    const permissions = [...ALL_PERMISSIONS].sort();
+
+    await deps.audit.record(
+      {
+        tenantId,
+        userId: created._id,
+        action: AUTH_ACTIONS.REGISTER_SUCCESS,
+        entityType: 'tenant',
+        entityId: tenantId,
+        result: 'SUCCESS',
+        correlationId: input.correlationId,
+        after: { email, username, slug, membershipId: membership._id, roleId: role._id, sessionId },
+      },
+      session,
+    );
+
+    return {
+      accessToken,
+      refreshToken: issued.token,
+      tokenType: 'Bearer' as const,
+      expiresIn: deps.tokens.accessTtlSeconds(),
+      tenantId,
+      sessionId,
+      user: toSafeUser(created),
+      tenant: { tenantId: tenant.tenantId, name: tenant.name, slug: tenant.slug },
+      permissions,
+    };
+  });
+
+  try {
+    await deps.emailProvider.sendWelcomeEmail({
+      to: email,
+      firstName: input.firstName,
+      companyName,
+    });
+  } catch (error) {
+    console.warn('Welcome email could not be sent', {
+      email,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return result;
 }
