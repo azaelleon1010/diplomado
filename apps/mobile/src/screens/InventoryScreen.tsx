@@ -1,5 +1,12 @@
-import React, { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  FlatList,
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../theme/Theme';
 import { spacing } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
@@ -7,60 +14,125 @@ import { useAppNavigation } from '../hooks/useAppNavigation';
 import { TopBar } from '../components/TopBar';
 import { SearchBar, ResultCount } from '../components/SearchBar';
 import { ListItem } from '../components/ListItem';
-import { Chip } from '../components/Chip';
-import { EmptyState } from '../components/States';
+import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import { Card } from '../components/Card';
 import { unreadAlertsCount } from '../data/alerts';
-import { inventoryItems, warehouses } from '../data/inventory';
-import type { StockState } from '../types';
-
-const STOCK_META: Record<StockState, { label: string; tone: 'success' | 'warning' | 'danger' }> = {
-  available: { label: 'Disponible', tone: 'success' },
-  low: { label: 'Stock bajo', tone: 'warning' },
-  out: { label: 'Agotado', tone: 'danger' },
-};
-
-const STATE_FILTERS = ['Todos', 'Disponible', 'Stock bajo', 'Agotado'] as const;
-type StateFilter = (typeof STATE_FILTERS)[number];
-
-const STATE_BY_FILTER: Record<StateFilter, StockState | null> = {
-  Todos: null,
-  Disponible: 'available',
-  'Stock bajo': 'low',
-  Agotado: 'out',
-};
+import {
+  friendlyMessage,
+  inventoryApi,
+  loadSession,
+  type Product,
+} from '../lib/api';
 
 export function InventoryScreen(): React.JSX.Element {
   const { palette } = useTheme();
   const { userName } = useAuth();
   const navigation = useAppNavigation();
   const [query, setQuery] = useState('');
-  const [warehouse, setWarehouse] = useState<string>('Todos');
-  const [stateFilter, setStateFilter] = useState<StateFilter>('Todos');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadProducts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const session = await loadSession();
+
+      if (!session?.accessToken) {
+        setError('Tu sesión no está disponible. Inicia sesión nuevamente.');
+        setProducts([]);
+        return;
+      }
+
+      const [items, categories] = await Promise.all([
+        inventoryApi.listProducts(session.accessToken, { limit: 100 }),
+        inventoryApi.listCategories(session.accessToken).catch(() => []),
+      ]);
+
+      setProducts(Array.isArray(items) ? items : []);
+
+      const names: Record<string, string> = {};
+
+      for (const category of categories) {
+        names[category._id] = category.name;
+      }
+
+      setCategoryNames(names);
+    } catch (err) {
+      setProducts([]);
+      setError(friendlyMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadProducts();
+    }, [loadProducts]),
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const wanted = STATE_BY_FILTER[stateFilter];
-    return inventoryItems.filter((item) => {
-      if (warehouse !== 'Todos' && item.warehouse !== warehouse) {
-        return false;
-      }
-      if (wanted !== null && item.state !== wanted) {
-        return false;
-      }
-      if (q.length === 0) {
-        return true;
-      }
-      return (
-        item.name.toLowerCase().includes(q) ||
-        item.sku.toLowerCase().includes(q) ||
-        item.warehouse.toLowerCase().includes(q)
-      );
-    });
-  }, [query, warehouse, stateFilter]);
 
-  const filterActive = warehouse !== 'Todos' || stateFilter !== 'Todos';
-  const [showFilters, setShowFilters] = useState(false);
+    if (q.length === 0) {
+      return products;
+    }
+
+    return products.filter(
+      (item) =>
+        item.name.toLowerCase().includes(q) ||
+        item.sku.toLowerCase().includes(q),
+    );
+  }, [query, products]);
+
+  const renderContent = () => {
+    if (loading && products.length === 0) {
+      return <LoadingState label="Cargando productos…" />;
+    }
+
+    if (error && products.length === 0) {
+      return (
+        <ErrorState
+          title="No se pudo cargar el inventario"
+          detail={error}
+          onRetry={() => void loadProducts()}
+        />
+      );
+    }
+
+    return (
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item._id}
+        contentContainerStyle={styles.list}
+        ListEmptyComponent={
+          <EmptyState
+            title="Sin resultados"
+            detail={
+              products.length === 0
+                ? 'Aún no hay productos registrados en tu empresa.'
+                : 'Ajusta la búsqueda.'
+            }
+          />
+        }
+        renderItem={({ item }) => (
+          <Card style={styles.itemCard}>
+            <ListItem
+              title={item.name}
+              subtitle={`${item.sku}${item.categoryId && categoryNames[item.categoryId] ? ` · ${categoryNames[item.categoryId]}` : ''}`}
+              rightText={`$${item.price.toFixed(2)}`}
+              badgeLabel={item.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
+              badgeTone={item.status === 'ACTIVE' ? 'success' : 'neutral'}
+            />
+          </Card>
+        )}
+      />
+    );
+  };
 
   return (
     <View style={[styles.flex, { backgroundColor: palette.background }]}>
@@ -77,59 +149,20 @@ export function InventoryScreen(): React.JSX.Element {
         <SearchBar
           value={query}
           onChange={setQuery}
-          placeholder="Buscar material, SKU o almacén…"
-          onFilterPress={() => setShowFilters((v) => !v)}
-          filterActive={filterActive}
+          placeholder="Buscar por nombre o SKU…"
         />
-        {showFilters ? (
-          <View style={styles.filterBlock}>
-            <FlatList
-              data={[...warehouses]}
-              horizontal
-              keyExtractor={(w) => w}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipRow}
-              renderItem={({ item }) => (
-                <Chip label={item} selected={warehouse === item} onPress={() => setWarehouse(item)} />
-              )}
-            />
-            <FlatList
-              data={[...STATE_FILTERS]}
-              horizontal
-              keyExtractor={(s) => s}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipRow}
-              renderItem={({ item }) => (
-                <Chip label={item} selected={stateFilter === item} onPress={() => setStateFilter(item)} />
-              )}
-            />
-          </View>
-        ) : null}
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: palette.brand }]}
+          onPress={() => navigation.navigate('ProductForm')}
+        >
+          <Text style={styles.addButtonText}>
+            + Nuevo producto
+          </Text>
+        </TouchableOpacity>
         <ResultCount
-          text={`${filtered.length} de ${inventoryItems.length} materiales${warehouse !== 'Todos' ? ` · ${warehouse}` : ''}`}
+          text={`${filtered.length} de ${products.length} productos`}
         />
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <EmptyState title="Sin resultados" detail="Ajusta la búsqueda o los filtros." />
-          }
-          renderItem={({ item }) => {
-            const meta = STOCK_META[item.state];
-            return (
-              <Card style={styles.itemCard}>
-                <ListItem
-                  title={item.name}
-                  subtitle={`${item.sku} · ${item.warehouse}`}
-                  rightText={`${item.stock} ${item.unit}`}
-                  badgeLabel={meta.label}
-                  badgeTone={meta.tone}
-                />
-              </Card>
-            );
-          }}
-        />
+        {renderContent()}
       </View>
     </View>
   );
@@ -143,13 +176,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     gap: spacing.sm,
   },
-  filterBlock: {
-    gap: spacing.sm,
-  },
-  chipRow: {
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
-  },
   list: {
     gap: spacing.sm,
     paddingBottom: spacing.xxxl,
@@ -157,5 +183,17 @@ const styles = StyleSheet.create({
   itemCard: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
+  },
+  addButton: {
+    borderRadius: 10,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

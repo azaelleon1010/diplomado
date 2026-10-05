@@ -74,6 +74,7 @@ export interface IRoleStore {
   findByName(tenantId: string, name: string): Promise<Role | null>;
   create(data: { tenantId: string; name: string; description?: string; permissions: string[]; createdBy: string }, session?: TxSession): Promise<Role>;
   list(tenantId: string): Promise<Role[]>;
+  setPermissions(tenantId: string, roleId: string, permissions: string[], updatedBy: string): Promise<Role | null>;
 }
 
 export interface IMembershipStore {

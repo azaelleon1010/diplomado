@@ -51,6 +51,15 @@ export async function seedIdentity(
       createdBy: 'seed',
     });
     roleCreated = true;
+  } else {
+    // Sync new permissions into pre-existing admin roles (e.g. when a new
+    // module extends the catalog). Never removes custom permissions.
+    const existingRole = role;
+    const missing = ALL_PERMISSIONS.filter((p) => !existingRole.permissions.includes(p));
+    if (missing.length > 0) {
+      const updated = await deps.roles.setPermissions(input.tenantId, existingRole._id, [...existingRole.permissions, ...missing], 'seed');
+      if (updated) role = updated;
+    }
   }
 
   let user = await deps.users.findByEmail(input.tenantId, email);

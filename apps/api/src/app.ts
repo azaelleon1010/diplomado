@@ -16,6 +16,11 @@ import {
 } from './modules/identity/presentation/routes';
 import type { RegisterDeps } from './modules/identity/application/usecases';
 import { buildInventoryDeps, createInventoryRouter } from './modules/inventory/presentation/routes';
+import { buildMaintenanceDeps, createMaintenanceRouter } from './modules/maintenance/presentation/routes';
+import { buildProductionDeps, createProductionRouter } from './modules/production/presentation/routes';
+import { buildPurchasingDeps, createPurchasingRouter } from './modules/purchasing/presentation/routes';
+import { buildHrDeps, createHrRouter } from './modules/hr/presentation/routes';
+import { buildFinanceDeps, createFinanceRouter } from './modules/finance/presentation/routes';
 import { openApiSpec } from './openapi';
 
 export function createApp(identityDeps?: RegisterDeps) {
@@ -57,6 +62,26 @@ export function createApp(identityDeps?: RegisterDeps) {
   // Inventory (Phase 1): products, categories, warehouses, stock, movements
   const inventoryDeps = buildInventoryDeps();
   app.use('/api/v1/inventory', createInventoryRouter(inventoryDeps, authMiddleware));
+
+  // Maintenance (Phase 1): assets + maintenance orders
+  const maintenanceDeps = buildMaintenanceDeps();
+  app.use('/api/v1/maintenance', createMaintenanceRouter(maintenanceDeps, authMiddleware));
+
+  // Production (Phase 2): production orders reusing the inventory catalog
+  const productionDeps = buildProductionDeps();
+  app.use('/api/v1/production', createProductionRouter(productionDeps, authMiddleware));
+
+  // Purchasing (Phase 3): suppliers + purchase orders reusing the inventory catalog
+  const purchasingDeps = buildPurchasingDeps();
+  app.use('/api/v1/purchasing', createPurchasingRouter(purchasingDeps, authMiddleware));
+
+  // HR (Phase 4): departments, employees, time off
+  const hrDeps = buildHrDeps();
+  app.use('/api/v1/hr', createHrRouter(hrDeps, authMiddleware));
+
+  // Finance (Phase 5): accounts, categories, movements
+  const financeDeps = buildFinanceDeps();
+  app.use('/api/v1/finance', createFinanceRouter(financeDeps, authMiddleware));
 
   // Placeholder for future modules - illustrates versioned, resource-oriented routing
   // Example: app.use('/api/v1/customers', customersRouter);

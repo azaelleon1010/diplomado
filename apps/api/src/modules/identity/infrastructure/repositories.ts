@@ -209,6 +209,13 @@ export class MongoRoleStore implements IRoleStore {
       throw mapMongoError(err);
     }
   }
+
+  async setPermissions(tenantId: string, roleId: string, permissions: string[], updatedBy: string): Promise<Role | null> {
+    const current = await this.base.findById(roleId, { tenantId, userId: updatedBy });
+    if (!current) return null;
+    const updated = await this.base.updateById(roleId, { permissions: [...permissions] }, { tenantId, userId: updatedBy }, current.version);
+    return toRole(updated);
+  }
 }
 
 export class MongoMembershipStore implements IMembershipStore {

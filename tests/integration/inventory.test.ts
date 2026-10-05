@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { __resetConfigForTests } from '../../packages/config/src/index';
 import { connectMongo, disconnectMongo } from '../../packages/database/src/connection';
 import { ensureIndexes } from '../../packages/database/src/indexes';
@@ -12,7 +12,7 @@ import { AuditEventModel, MembershipModel, RoleModel, UserModel } from '../../ap
 import { CategoryModel, ProductModel, WarehouseModel } from '../../apps/api/src/modules/inventory/infrastructure/models';
 import type { Express } from 'express';
 
-let mongod: MongoMemoryServer;
+let mongod: MongoMemoryReplSet;
 let app: Express;
 
 const TENANT_A = 'TENANT_A';
@@ -48,7 +48,7 @@ describe('Inventory integration: catalog + isolation + permissions + audit', () 
     if (process.env.TEST_MONGO_URI) {
       process.env.MONGODB_URI = process.env.TEST_MONGO_URI;
     } else {
-      mongod = await MongoMemoryServer.create();
+      mongod = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
       process.env.MONGODB_URI = mongod.getUri();
     }
     process.env.MONGODB_DATABASE = 'test_inventory';

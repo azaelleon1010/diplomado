@@ -1,5 +1,6 @@
-import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../theme/Theme';
 import { radii, spacing, typography } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
@@ -8,22 +9,145 @@ import { TopBar } from '../components/TopBar';
 import { SectionHeader } from '../components/SectionHeader';
 import { StatusBadge, type BadgeTone } from '../components/StatusBadge';
 import { Card } from '../components/Card';
-import { Pressable } from 'react-native';
+import { Chip } from '../components/Chip';
+import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import { unreadAlertsCount } from '../data/alerts';
-import { productionOrders } from '../data/production';
-import type { OrderStatus } from '../types';
+import {
+  friendlyMessage,
+  inventoryApi,
+  loadSession,
+  productionApi,
+  type Product,
+  type ProductionOrder,
+} from '../lib/api';
 
-const STATUS_META: Record<OrderStatus, { label: string; tone: BadgeTone }> = {
-  in_process: { label: 'En proceso', tone: 'info' },
-  queued: { label: 'En cola', tone: 'neutral' },
-  completed: { label: 'Completada', tone: 'success' },
-  paused: { label: 'Pausada', tone: 'warning' },
+const STATUS_META: Record<string, { label: string; tone: BadgeTone }> = {
+  DRAFT: { label: 'Borrador', tone: 'neutral' },
+  RELEASED: { label: 'Liberada', tone: 'info' },
+  IN_PROGRESS: { label: 'En proceso', tone: 'info' },
+  PAUSED: { label: 'Pausada', tone: 'warning' },
+  COMPLETED: { label: 'Completada', tone: 'success' },
+  CANCELLED: { label: 'Cancelada', tone: 'neutral' },
 };
+
+const STATUS_FILTERS = [
+  { id: 'IN_PROGRESS', label: 'En proceso' },
+  { id: 'RELEASED', label: 'Liberadas' },
+  { id: 'COMPLETED', label: 'Completadas' },
+  { id: 'all', label: 'Todas' },
+] as const;
+
+type StatusFilter = (typeof STATUS_FILTERS)[number]['id'];
 
 export function ProductionScreen(): React.JSX.Element {
   const { palette } = useTheme();
   const { userName } = useAuth();
   const navigation = useAppNavigation();
+  const [orders, setOrders] = useState<ProductionOrder[]>([]);
+  const [productNames, setProductNames] = useState<Record<string, string>>({});
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('IN_PROGRESS');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const session = await loadSession();
+      if (!session?.accessToken) {
+        setError('Tu sesión no está disponible. Inicia sesión nuevamente.');
+        setOrders([]);
+        return;
+      }
+      const [fetched, catalog] = await Promise.all([
+        productionApi.listOrders(session.accessToken, {
+          status: statusFilter === 'all' ? undefined : statusFilter,
+          limit: 100,
+        }),
+        inventoryApi.listProducts(session.accessToken, { limit: 100 }).catch(() => [] as Product[]),
+      ]);
+      setOrders(Array.isArray(fetched) ? fetched : []);
+      const names: Record<string, string> = {};
+      for (const product of Array.isArray(catalog) ? catalog : []) {
+        names[product._id] = `${product.sku} · ${product.name}`;
+      }
+      setProductNames(names);
+    } catch (err) {
+      setOrders([]);
+      setError(friendlyMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadData();
+    }, [loadData]),
+  );
+
+  const progressOf = (order: ProductionOrder): number => {
+    if (order.quantity <= 0) return 0;
+    return Math.min(100, Math.round((order.producedQuantity / order.quantity) * 100));
+  };
+
+  const renderContent = () => {
+    if (loading && orders.length === 0) {
+      return <LoadingState label="Cargando órdenes…" />;
+    }
+    if (error && orders.length === 0) {
+      return (
+        <ErrorState
+          title="No se pudo cargar producción"
+          detail={error}
+          onRetry={() => void loadData()}
+        />
+      );
+    }
+    if (orders.length === 0) {
+      return <EmptyState title="Sin órdenes" detail="No hay órdenes de producción en este estado." />;
+    }
+    return (
+      <FlatList
+        data={orders}
+        keyExtractor={(o) => o._id}
+        scrollEnabled={false}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }) => {
+          const meta = STATUS_META[item.status] ?? { label: item.status, tone: 'neutral' as BadgeTone };
+          const progress = progressOf(item);
+          return (
+            <Pressable
+              onPress={() => navigation.navigate('ProductionDetail', { orderId: item._id })}
+              accessibilityRole="button"
+              accessibilityLabel={`Abrir ${item.code}`}
+              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
+              <Card>
+                <View style={styles.headerRow}>
+                  <Text style={[styles.orderId, { color: palette.textPrimary }]}>Orden #{item.code}</Text>
+                  <StatusBadge label={meta.label} tone={meta.tone} />
+                </View>
+                <Text style={[styles.product, { color: palette.textSecondary }]}>
+                  {productNames[item.productId] ?? 'Producto'}
+                </Text>
+                <View style={[styles.track, { backgroundColor: palette.backgroundSecondary }]}>
+                  <View style={[styles.fill, { width: `${progress}%`, backgroundColor: palette.accent }]} />
+                </View>
+                <View style={styles.footerRow}>
+                  <Text style={[styles.footer, { color: palette.textMuted }]}>
+                    {item.producedQuantity}/{item.quantity} · {progress}%
+                  </Text>
+                  <Text style={[styles.footer, { color: palette.textMuted }]}>
+                    {[item.machine, item.responsible].filter(Boolean).join(' · ') || 'Sin asignar'}
+                  </Text>
+                </View>
+              </Card>
+            </Pressable>
+          );
+        }}
+      />
+    );
+  };
 
   return (
     <View style={[styles.flex, { backgroundColor: palette.background }]}>
@@ -36,46 +160,30 @@ export function ProductionScreen(): React.JSX.Element {
         onAlertsPress={() => navigation.navigate('Alerts')}
         userName={userName}
       />
-      <View style={styles.body}>
-        <SectionHeader title={`${productionOrders.length} órdenes`} />
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}>
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: palette.brand }]}
+          onPress={() => navigation.navigate('ProductionOrderForm')}
+          accessibilityRole="button"
+          accessibilityLabel="Nueva orden de producción">
+          <Text style={styles.addButtonText}>+ Nueva orden</Text>
+        </TouchableOpacity>
         <FlatList
-          data={productionOrders}
-          keyExtractor={(o) => o.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => {
-            const meta = STATUS_META[item.status];
-            return (
-              <Pressable
-                onPress={() => navigation.navigate('ProductionDetail', { orderId: item.id })}
-                accessibilityRole="button"
-                accessibilityLabel={`Abrir ${item.id}`}
-                style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}>
-                <Card>
-                  <View style={styles.headerRow}>
-                    <Text style={[styles.orderId, { color: palette.textPrimary }]}>
-                      Orden #{item.id.replace('p-', '')}
-                    </Text>
-                    <StatusBadge label={meta.label} tone={meta.tone} />
-                  </View>
-                  <Text style={[styles.product, { color: palette.textSecondary }]}>{item.product}</Text>
-                  <View
-                    style={[styles.track, { backgroundColor: palette.backgroundSecondary }]}>
-                    <View
-                      style={[styles.fill, { width: `${item.progress}%`, backgroundColor: palette.accent }]}
-                    />
-                  </View>
-                  <View style={styles.footerRow}>
-                    <Text style={[styles.footer, { color: palette.textMuted }]}>{item.progress}%</Text>
-                    <Text style={[styles.footer, { color: palette.textMuted }]}>
-                      {item.machine} · {item.owner}
-                    </Text>
-                  </View>
-                </Card>
-              </Pressable>
-            );
-          }}
+          data={[...STATUS_FILTERS]}
+          horizontal
+          keyExtractor={(f) => f.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipRow}
+          renderItem={({ item }) => (
+            <Chip label={item.label} selected={statusFilter === item.id} onPress={() => setStatusFilter(item.id)} />
+          )}
         />
-      </View>
+        <SectionHeader title={`${orders.length} órdenes`} />
+        {renderContent()}
+      </ScrollView>
     </View>
   );
 }
@@ -83,8 +191,25 @@ export function ProductionScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   body: {
-    flex: 1,
     padding: spacing.lg,
+    paddingBottom: spacing.xxxl,
+    gap: spacing.sm,
+    flexGrow: 1,
+  },
+  addButton: {
+    borderRadius: 10,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  chipRow: {
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
   },
   list: {
     gap: spacing.sm,

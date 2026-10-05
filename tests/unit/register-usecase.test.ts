@@ -70,6 +70,13 @@ function makeStores() {
       return r;
     },
     list: async () => [],
+    setPermissions: async (tenantId, roleId, permissions) => {
+      const r = roles.get(roleId);
+      if (!r || r.tenantId !== tenantId) return null;
+      const next = { ...r, permissions: [...permissions], version: r.version + 1 };
+      roles.set(roleId, next);
+      return next;
+    },
   };
 
   const membershipStore: IMembershipStore = {

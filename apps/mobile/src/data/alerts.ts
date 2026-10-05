@@ -61,6 +61,33 @@ const BASE_ALERTS: AlertItem[] = [
 /** Local mutable copy so "marcar como leída" works in this mock phase. */
 export let alertsStore: AlertItem[] = BASE_ALERTS.map((a) => ({ ...a }));
 
+let localAlertSeq = 0;
+
+/**
+ * Push a runtime alert produced by a real backend operation
+ * (e.g. maintenance order created/completed). Uses the same store and
+ * shape as the mock alerts so AlertsScreen needs no changes.
+ */
+export function pushAlert(
+  category: AlertCategory,
+  title: string,
+  detail: string,
+  tone: AlertItem['tone'] = 'info',
+): AlertItem {
+  localAlertSeq += 1;
+  const item: AlertItem = {
+    id: `local-${Date.now()}-${localAlertSeq}`,
+    category,
+    title,
+    detail,
+    time: 'ahora mismo',
+    read: false,
+    tone,
+  };
+  alertsStore = [item, ...alertsStore];
+  return item;
+}
+
 export function resetAlertsStore(): void {
   alertsStore = BASE_ALERTS.map((a) => ({ ...a }));
 }

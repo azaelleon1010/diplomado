@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { __resetConfigForTests } from '../../packages/config/src/index';
 import { connectMongo, disconnectMongo } from '../../packages/database/src/connection';
 import { ensureIndexes } from '../../packages/database/src/indexes';
@@ -10,7 +10,7 @@ import { buildIdentityDeps } from '../../apps/api/src/modules/identity/presentat
 import type { IEmailProvider } from '../../apps/api/src/modules/notifications/domain/ports';
 import type { Express } from 'express';
 
-let mongod: MongoMemoryServer | undefined;
+let mongod: MongoMemoryReplSet | undefined;
 let app: Express;
 
 const stamp = Date.now().toString(36);
@@ -33,7 +33,7 @@ describe('Register vertical slice: company -> tenant -> session -> dashboard dat
     if (process.env.TEST_MONGO_URI) {
       process.env.MONGODB_URI = process.env.TEST_MONGO_URI;
     } else {
-      mongod = await MongoMemoryServer.create();
+      mongod = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
       process.env.MONGODB_URI = mongod.getUri();
     }
 
