@@ -1,3 +1,4 @@
+import { darkPalette } from '../theme/tokens';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -160,13 +161,13 @@ export function PurchaseOrderFormScreen(): React.JSX.Element {
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>Folio *</Text>
-        <TextInput value={folio} onChangeText={setFolio} placeholder="Ej. OC-1001" placeholderTextColor="#98A2B3" style={styles.input} autoCapitalize="characters" />
+        <TextInput value={folio} onChangeText={setFolio} placeholder="Ej. OC-1001" placeholderTextColor={darkPalette.textMuted} style={styles.input} autoCapitalize="characters" />
         <Text style={styles.label}>Proveedor *</Text>
         <TouchableOpacity style={styles.selector} onPress={() => setSupplierModalVisible(true)} disabled={loadingSuppliers}>
           <View style={styles.selectorContent}>
             {loadingSuppliers ? (
               <>
-                <ActivityIndicator size="small" color="#2563EB" />
+                <ActivityIndicator size="small" color={darkPalette.brand} />
                 <Text style={styles.selectorLoading}>Cargando proveedores…</Text>
               </>
             ) : (
@@ -181,9 +182,9 @@ export function PurchaseOrderFormScreen(): React.JSX.Element {
           <Text style={styles.hint}>No hay proveedores activos. Registra un proveedor primero.</Text>
         ) : null}
         <Text style={styles.label}>Fecha esperada</Text>
-        <TextInput value={expectedDate} onChangeText={setExpectedDate} placeholder="Ej. 2026-11-15" placeholderTextColor="#98A2B3" style={styles.input} />
+        <TextInput value={expectedDate} onChangeText={setExpectedDate} placeholder="Ej. 2026-11-15" placeholderTextColor={darkPalette.textMuted} style={styles.input} />
         <Text style={styles.label}>Notas</Text>
-        <TextInput value={notes} onChangeText={setNotes} placeholder="Notas de la orden" placeholderTextColor="#98A2B3" style={[styles.input, styles.textArea]} multiline />
+        <TextInput value={notes} onChangeText={setNotes} placeholder="Notas de la orden" placeholderTextColor={darkPalette.textMuted} style={[styles.input, styles.textArea]} multiline />
 
         <Text style={styles.label}>Líneas de la orden *</Text>
         <TouchableOpacity style={styles.selector} onPress={() => setLineModalVisible(true)} disabled={loadingSuppliers}>
@@ -193,8 +194,8 @@ export function PurchaseOrderFormScreen(): React.JSX.Element {
           <Text style={styles.selectorArrow}>⌄</Text>
         </TouchableOpacity>
         <View style={styles.lineRow}>
-          <TextInput value={lineQty} onChangeText={setLineQty} placeholder="Cant." placeholderTextColor="#98A2B3" style={[styles.input, styles.lineInput]} keyboardType="decimal-pad" />
-          <TextInput value={lineCost} onChangeText={setLineCost} placeholder="Costo c/u" placeholderTextColor="#98A2B3" style={[styles.input, styles.lineInput]} keyboardType="decimal-pad" />
+          <TextInput value={lineQty} onChangeText={setLineQty} placeholder="Cant." placeholderTextColor={darkPalette.textMuted} style={[styles.input, styles.lineInput]} keyboardType="decimal-pad" />
+          <TextInput value={lineCost} onChangeText={setLineCost} placeholder="Costo c/u" placeholderTextColor={darkPalette.textMuted} style={[styles.input, styles.lineInput]} keyboardType="decimal-pad" />
           <TouchableOpacity onPress={addLine} style={styles.addLineButton}>
             <Text style={styles.addLineText}>+ Agregar</Text>
           </TouchableOpacity>
@@ -278,45 +279,45 @@ export function PurchaseOrderFormScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  header: { backgroundColor: '#FFFFFF', paddingTop: 55, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: '#E1E5EA', flexDirection: 'row', alignItems: 'center' },
-  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EEF2F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  backButtonText: { fontSize: 32, color: '#111827', lineHeight: 36 },
+  container: { flex: 1, backgroundColor: darkPalette.background },
+  header: { backgroundColor: darkPalette.surface, paddingTop: 55, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: darkPalette.borderStrong, flexDirection: 'row', alignItems: 'center' },
+  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: darkPalette.backgroundSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  backButtonText: { fontSize: 32, color: darkPalette.textPrimary, lineHeight: 36 },
   headerText: { flex: 1 },
-  title: { fontSize: 26, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 15, color: '#667085', marginTop: 5 },
+  title: { fontSize: 26, fontWeight: '700', color: darkPalette.textPrimary },
+  subtitle: { fontSize: 15, color: darkPalette.textSecondary, marginTop: 5 },
   content: { padding: 20, paddingBottom: 50 },
-  label: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 7 },
-  input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, color: '#111827', marginBottom: 18 },
+  label: { fontSize: 14, fontWeight: '700', color: darkPalette.textPrimary, marginBottom: 7 },
+  input: { backgroundColor: darkPalette.surface, borderWidth: 1, borderColor: darkPalette.borderStrong, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, color: darkPalette.textPrimary, marginBottom: 18 },
   textArea: { height: 90, textAlignVertical: 'top' },
-  selector: { minHeight: 51, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 10, paddingHorizontal: 14, marginBottom: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selector: { minHeight: 51, backgroundColor: darkPalette.surface, borderWidth: 1, borderColor: darkPalette.borderStrong, borderRadius: 10, paddingHorizontal: 14, marginBottom: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   selectorContent: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  selectorText: { fontSize: 16, color: '#111827' },
-  selectorPlaceholder: { color: '#98A2B3' },
-  selectorLoading: { marginLeft: 10, fontSize: 15, color: '#667085' },
-  selectorArrow: { fontSize: 24, color: '#667085', marginLeft: 10 },
-  hint: { fontSize: 13, color: '#667085', marginBottom: 18, marginTop: -10 },
+  selectorText: { fontSize: 16, color: darkPalette.textPrimary },
+  selectorPlaceholder: { color: darkPalette.textMuted },
+  selectorLoading: { marginLeft: 10, fontSize: 15, color: darkPalette.textSecondary },
+  selectorArrow: { fontSize: 24, color: darkPalette.textSecondary, marginLeft: 10 },
+  hint: { fontSize: 13, color: darkPalette.textSecondary, marginBottom: 18, marginTop: -10 },
   lineRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
   lineInput: { flex: 1, marginBottom: 0 },
-  addLineButton: { backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#2563EB', borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' },
-  addLineText: { color: '#2563EB', fontWeight: '700', fontSize: 14 },
-  lineItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E1E5EA', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8 },
-  lineItemText: { fontSize: 14, color: '#111827', flex: 1 },
-  lineRemove: { color: '#DC2626', fontWeight: '600', fontSize: 14 },
-  subtotal: { fontSize: 16, fontWeight: '700', color: '#111827', textAlign: 'right', marginBottom: 8 },
-  saveButton: { backgroundColor: '#2563EB', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  saveButtonDisabled: { backgroundColor: '#98A2B3' },
+  addLineButton: { backgroundColor: darkPalette.brandSoft, borderWidth: 1, borderColor: darkPalette.brand, borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' },
+  addLineText: { color: darkPalette.brand, fontWeight: '700', fontSize: 14 },
+  lineItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: darkPalette.surface, borderWidth: 1, borderColor: darkPalette.borderStrong, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8 },
+  lineItemText: { fontSize: 14, color: darkPalette.textPrimary, flex: 1 },
+  lineRemove: { color: darkPalette.danger, fontWeight: '600', fontSize: 14 },
+  subtotal: { fontSize: 16, fontWeight: '700', color: darkPalette.textPrimary, textAlign: 'right', marginBottom: 8 },
+  saveButton: { backgroundColor: darkPalette.brand, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
+  saveButtonDisabled: { backgroundColor: darkPalette.disabled },
   saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.45)', justifyContent: 'flex-end' },
-  modal: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: '75%', paddingBottom: 30 },
-  modalHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#E1E5EA', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
-  closeButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#EEF2F6', alignItems: 'center', justifyContent: 'center' },
-  closeButtonText: { fontSize: 27, color: '#344054', lineHeight: 30 },
+  modal: { backgroundColor: darkPalette.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: '75%', paddingBottom: 30 },
+  modalHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: darkPalette.borderStrong, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: darkPalette.textPrimary },
+  closeButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: darkPalette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' },
+  closeButtonText: { fontSize: 27, color: darkPalette.textPrimary, lineHeight: 30 },
   optionList: { padding: 20 },
-  option: { minHeight: 54, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, borderColor: '#E1E5EA', backgroundColor: '#FFFFFF', marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  optionSelected: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
-  optionText: { fontSize: 16, color: '#111827' },
-  optionTextSelected: { color: '#2563EB', fontWeight: '700' },
-  checkmark: { fontSize: 20, color: '#2563EB', fontWeight: '700' },
+  option: { minHeight: 54, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, borderColor: darkPalette.borderStrong, backgroundColor: darkPalette.surface, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  optionSelected: { borderColor: darkPalette.brand, backgroundColor: darkPalette.brandSoft },
+  optionText: { fontSize: 16, color: darkPalette.textPrimary },
+  optionTextSelected: { color: darkPalette.brand, fontWeight: '700' },
+  checkmark: { fontSize: 20, color: darkPalette.brand, fontWeight: '700' },
 });

@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +15,8 @@ import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/Theme';
 import { radii, spacing, typography } from '../theme/tokens';
 import { Button } from '../components/Button';
+import { Card } from '../components/Card';
+import { Input } from '../components/Input';
 import type { RootStackParamList } from '../navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
@@ -112,196 +113,118 @@ export function RegisterScreen(): React.JSX.Element {
           Configura tu empresa para comenzar a utilizar TramaTech ERP.
         </Text>
 
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: palette.surface,
-              borderColor: palette.borderStrong,
-            },
-          ]}>
+        <Card style={styles.card}>
           <Text style={[styles.sectionTitle, { color: palette.textPrimary }]}>
             Empresa
           </Text>
 
-          <Text style={[styles.fieldLabel, { color: palette.textSecondary }]}>
-            Nombre de la empresa
-          </Text>
-          <TextInput
+          <Input
+            label="Nombre de la empresa"
+            containerStyle={styles.field}
             value={companyName}
             onChangeText={setCompanyName}
             placeholder="TramaTech México"
-            placeholderTextColor={palette.textMuted}
             autoCapitalize="words"
-            style={[
-              styles.input,
-              {
-                color: palette.textPrimary,
-                borderColor: palette.borderStrong,
-                backgroundColor: palette.backgroundSecondary,
-              },
-            ]}
           />
 
           <Text style={[styles.sectionTitle, styles.userSection, { color: palette.textPrimary }]}>
             Usuario administrador
           </Text>
 
-          <Text style={[styles.fieldLabel, { color: palette.textSecondary }]}>
-            Nombre de usuario
-          </Text>
-          <TextInput
+          <Input
+            label="Nombre de usuario"
+            containerStyle={styles.field}
             value={username}
             onChangeText={setUsername}
             placeholder="admin"
-            placeholderTextColor={palette.textMuted}
             autoCapitalize="none"
-            style={[
-              styles.input,
-              {
-                color: palette.textPrimary,
-                borderColor: palette.borderStrong,
-                backgroundColor: palette.backgroundSecondary,
-              },
-            ]}
           />
 
-          <Text style={[styles.fieldLabel, { color: palette.textSecondary }]}>
-            Correo electrónico
-          </Text>
-          <TextInput
+          <Input
+            label="Correo electrónico"
+            containerStyle={styles.field}
             value={email}
             onChangeText={setEmail}
             placeholder="admin@empresa.mx"
-            placeholderTextColor={palette.textMuted}
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
-            style={[
-              styles.input,
-              {
-                color: palette.textPrimary,
-                borderColor: palette.borderStrong,
-                backgroundColor: palette.backgroundSecondary,
-              },
-            ]}
           />
 
-          <Text style={[styles.fieldLabel, { color: palette.textSecondary }]}>
-            Nombre
-          </Text>
-          <TextInput
+          <Input
+            label="Nombre"
+            containerStyle={styles.field}
             value={firstName}
             onChangeText={setFirstName}
             placeholder="Alejandro"
-            placeholderTextColor={palette.textMuted}
             autoCapitalize="words"
-            style={[
-              styles.input,
-              {
-                color: palette.textPrimary,
-                borderColor: palette.borderStrong,
-                backgroundColor: palette.backgroundSecondary,
-              },
-            ]}
           />
 
-          <Text style={[styles.fieldLabel, { color: palette.textSecondary }]}>
-            Apellido
-          </Text>
-          <TextInput
+          <Input
+            label="Apellido"
+            containerStyle={styles.field}
             value={lastName}
             onChangeText={setLastName}
             placeholder="León"
-            placeholderTextColor={palette.textMuted}
             autoCapitalize="words"
-            style={[
-              styles.input,
-              {
-                color: palette.textPrimary,
-                borderColor: palette.borderStrong,
-                backgroundColor: palette.backgroundSecondary,
-              },
-            ]}
           />
 
-          <Text style={[styles.fieldLabel, { color: palette.textSecondary }]}>
-            Contraseña
-          </Text>
-          <View
-            style={[
-              styles.passwordRow,
-              {
-                borderColor: palette.borderStrong,
-                backgroundColor: palette.backgroundSecondary,
-              },
-            ]}>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Mínimo 8 caracteres"
-              placeholderTextColor={palette.textMuted}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              style={[styles.passwordInput, { color: palette.textPrimary }]}
-            />
-            <Pressable
-              onPress={() => setShowPassword((value) => !value)}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={
-                showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
-              }>
-              <Text style={[styles.toggle, { color: palette.accent }]}>
-                {showPassword ? 'Ocultar' : 'Ver'}
-              </Text>
-            </Pressable>
-          </View>
+          <Input
+            label="Contraseña"
+            containerStyle={styles.field}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Mínimo 8 caracteres"
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            rightAccessory={(
+              <Pressable
+                onPress={() => setShowPassword((value) => !value)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
+                <Text style={[styles.toggle, { color: palette.accent }]}>
+                  {showPassword ? 'Ocultar' : 'Ver'}
+                </Text>
+              </Pressable>
+            )}
+          />
 
-          <Text style={[styles.fieldLabel, { color: palette.textSecondary }]}>
-            Confirmar contraseña
-          </Text>
-          <View
-            style={[
-              styles.passwordRow,
-              {
-                borderColor: palette.borderStrong,
-                backgroundColor: palette.backgroundSecondary,
-              },
-            ]}>
-            <TextInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Repite tu contraseña"
-              placeholderTextColor={palette.textMuted}
-              secureTextEntry={!showConfirmPassword}
-              autoCapitalize="none"
-              style={[styles.passwordInput, { color: palette.textPrimary }]}
-            />
-            <Pressable
-              onPress={() => setShowConfirmPassword((value) => !value)}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={
-                showConfirmPassword
-                  ? 'Ocultar confirmación de contraseña'
-                  : 'Mostrar confirmación de contraseña'
-              }>
-              <Text style={[styles.toggle, { color: palette.accent }]}>
-                {showConfirmPassword ? 'Ocultar' : 'Ver'}
-              </Text>
-            </Pressable>
-          </View>
+          <Input
+            label="Confirmar contraseña"
+            containerStyle={styles.field}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Repite tu contraseña"
+            secureTextEntry={!showConfirmPassword}
+            autoCapitalize="none"
+            rightAccessory={(
+              <Pressable
+                onPress={() => setShowConfirmPassword((value) => !value)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showConfirmPassword
+                    ? 'Ocultar confirmación de contraseña'
+                    : 'Mostrar confirmación de contraseña'
+                }>
+                <Text style={[styles.toggle, { color: palette.accent }]}>
+                  {showConfirmPassword ? 'Ocultar' : 'Ver'}
+                </Text>
+              </Pressable>
+            )}
+          />
 
           {displayedError ? (
-            <Text style={[styles.error, { color: palette.danger }]}>
+            <Text accessibilityRole="alert" style={[styles.error, { color: palette.danger }]}>
               {displayedError}
             </Text>
           ) : null}
 
           <View style={styles.registerButton}>
             <Button
-              label={loading ? 'Creando cuenta...' : 'Crear cuenta'}
+              label="Crear cuenta"
+              loading={loading}
               onPress={handleRegister}
             />
           </View>
@@ -318,7 +241,7 @@ export function RegisterScreen(): React.JSX.Element {
               ¿Ya tienes una cuenta? Inicia sesión
             </Text>
           </Pressable>
-        </View>
+        </Card>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -357,9 +280,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   card: {
-    borderWidth: 1,
     borderRadius: radii.xl,
-    padding: spacing.lg,
     marginTop: spacing.xxl,
   },
   sectionTitle: {
@@ -370,38 +291,12 @@ const styles = StyleSheet.create({
   userSection: {
     marginTop: spacing.xl,
   },
-  fieldLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.md,
-    minHeight: 48,
-    fontSize: typography.body.fontSize,
-  },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
-  },
-  passwordInput: {
-    flex: 1,
-    fontSize: typography.body.fontSize,
-    paddingVertical: spacing.sm,
-  },
+  field: { marginTop: spacing.md },
   toggle: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     paddingLeft: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   registerButton: {
     marginTop: spacing.xl,

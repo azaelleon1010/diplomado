@@ -1,3 +1,4 @@
+import { darkPalette } from '../theme/tokens';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -78,19 +79,19 @@ export function SupplierFormScreen(): React.JSX.Element {
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>Código *</Text>
-        <TextInput value={code} onChangeText={setCode} placeholder="Ej. PROV-01" placeholderTextColor="#98A2B3" style={styles.input} autoCapitalize="characters" />
+        <TextInput value={code} onChangeText={setCode} placeholder="Ej. PROV-01" placeholderTextColor={darkPalette.textMuted} style={styles.input} autoCapitalize="characters" />
         <Text style={styles.label}>Nombre *</Text>
-        <TextInput value={name} onChangeText={setName} placeholder="Ej. Aceros del Norte" placeholderTextColor="#98A2B3" style={styles.input} />
+        <TextInput value={name} onChangeText={setName} placeholder="Ej. Aceros del Norte" placeholderTextColor={darkPalette.textMuted} style={styles.input} />
         <Text style={styles.label}>Contacto</Text>
-        <TextInput value={contactName} onChangeText={setContactName} placeholder="Nombre del contacto" placeholderTextColor="#98A2B3" style={styles.input} />
+        <TextInput value={contactName} onChangeText={setContactName} placeholder="Nombre del contacto" placeholderTextColor={darkPalette.textMuted} style={styles.input} />
         <Text style={styles.label}>Correo</Text>
-        <TextInput value={email} onChangeText={setEmail} placeholder="contacto@proveedor.mx" placeholderTextColor="#98A2B3" style={styles.input} keyboardType="email-address" autoCapitalize="none" />
+        <TextInput value={email} onChangeText={setEmail} placeholder="contacto@proveedor.mx" placeholderTextColor={darkPalette.textMuted} style={styles.input} keyboardType="email-address" autoCapitalize="none" />
         <Text style={styles.label}>Teléfono</Text>
-        <TextInput value={phone} onChangeText={setPhone} placeholder="Ej. 55 1234 5678" placeholderTextColor="#98A2B3" style={styles.input} keyboardType="phone-pad" />
+        <TextInput value={phone} onChangeText={setPhone} placeholder="Ej. 55 1234 5678" placeholderTextColor={darkPalette.textMuted} style={styles.input} keyboardType="phone-pad" />
         <Text style={styles.label}>Dirección</Text>
-        <TextInput value={address} onChangeText={setAddress} placeholder="Dirección fiscal" placeholderTextColor="#98A2B3" style={styles.input} />
+        <TextInput value={address} onChangeText={setAddress} placeholder="Dirección fiscal" placeholderTextColor={darkPalette.textMuted} style={styles.input} />
         <Text style={styles.label}>RFC / Tax ID</Text>
-        <TextInput value={taxId} onChangeText={setTaxId} placeholder="Ej. XAXX010101000" placeholderTextColor="#98A2B3" style={styles.input} autoCapitalize="characters" />
+        <TextInput value={taxId} onChangeText={setTaxId} placeholder="Ej. XAXX010101000" placeholderTextColor={darkPalette.textMuted} style={styles.input} autoCapitalize="characters" />
         <TouchableOpacity onPress={() => void handleSubmit()} disabled={saving} style={[styles.saveButton, saving && styles.saveButtonDisabled]}>
           <Text style={styles.saveButtonText}>{saving ? 'Guardando…' : 'Guardar proveedor'}</Text>
         </TouchableOpacity>
@@ -100,17 +101,17 @@ export function SupplierFormScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  header: { backgroundColor: '#FFFFFF', paddingTop: 55, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: '#E1E5EA', flexDirection: 'row', alignItems: 'center' },
-  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EEF2F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  backButtonText: { fontSize: 32, color: '#111827', lineHeight: 36 },
+  container: { flex: 1, backgroundColor: darkPalette.background },
+  header: { backgroundColor: darkPalette.surface, paddingTop: 55, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: darkPalette.borderStrong, flexDirection: 'row', alignItems: 'center' },
+  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: darkPalette.backgroundSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  backButtonText: { fontSize: 32, color: darkPalette.textPrimary, lineHeight: 36 },
   headerText: { flex: 1 },
-  title: { fontSize: 26, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 15, color: '#667085', marginTop: 5 },
+  title: { fontSize: 26, fontWeight: '700', color: darkPalette.textPrimary },
+  subtitle: { fontSize: 15, color: darkPalette.textSecondary, marginTop: 5 },
   content: { padding: 20, paddingBottom: 50 },
-  label: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 7 },
-  input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, color: '#111827', marginBottom: 18 },
-  saveButton: { backgroundColor: '#2563EB', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  saveButtonDisabled: { backgroundColor: '#98A2B3' },
+  label: { fontSize: 14, fontWeight: '700', color: darkPalette.textPrimary, marginBottom: 7 },
+  input: { backgroundColor: darkPalette.surface, borderWidth: 1, borderColor: darkPalette.borderStrong, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, color: darkPalette.textPrimary, marginBottom: 18 },
+  saveButton: { backgroundColor: darkPalette.brand, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
+  saveButtonDisabled: { backgroundColor: darkPalette.disabled },
   saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

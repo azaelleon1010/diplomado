@@ -1,3 +1,4 @@
+import { darkPalette } from '../theme/tokens';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -138,7 +139,7 @@ export function MaintenanceOrderFormScreen(): React.JSX.Element {
           <View style={styles.selectorContent}>
             {loadingAssets ? (
               <>
-                <ActivityIndicator size="small" color="#2563EB" />
+                <ActivityIndicator size="small" color={darkPalette.brand} />
                 <Text style={styles.selectorLoading}>Cargando activos…</Text>
               </>
             ) : (
@@ -178,15 +179,15 @@ export function MaintenanceOrderFormScreen(): React.JSX.Element {
         </View>
 
         <Text style={styles.label}>Título *</Text>
-        <TextInput value={title} onChangeText={setTitle} placeholder="Ej. Banda rota en hiladora" placeholderTextColor="#98A2B3" style={styles.input} />
+        <TextInput value={title} onChangeText={setTitle} placeholder="Ej. Banda rota en hiladora" placeholderTextColor={darkPalette.textMuted} style={styles.input} />
         <Text style={styles.label}>Descripción</Text>
-        <TextInput value={description} onChangeText={setDescription} placeholder="Detalle de la falla o trabajo" placeholderTextColor="#98A2B3" style={[styles.input, styles.textArea]} multiline />
+        <TextInput value={description} onChangeText={setDescription} placeholder="Detalle de la falla o trabajo" placeholderTextColor={darkPalette.textMuted} style={[styles.input, styles.textArea]} multiline />
         <Text style={styles.label}>Programada para</Text>
-        <TextInput value={scheduledFor} onChangeText={setScheduledFor} placeholder="Ej. 2026-10-10" placeholderTextColor="#98A2B3" style={styles.input} />
+        <TextInput value={scheduledFor} onChangeText={setScheduledFor} placeholder="Ej. 2026-10-10" placeholderTextColor={darkPalette.textMuted} style={styles.input} />
         <Text style={styles.label}>Costo estimado</Text>
-        <TextInput value={cost} onChangeText={setCost} placeholder="0.00" placeholderTextColor="#98A2B3" style={styles.input} keyboardType="decimal-pad" />
+        <TextInput value={cost} onChangeText={setCost} placeholder="0.00" placeholderTextColor={darkPalette.textMuted} style={styles.input} keyboardType="decimal-pad" />
         <Text style={styles.label}>Asignado a</Text>
-        <TextInput value={assignedTo} onChangeText={setAssignedTo} placeholder="Nombre del técnico" placeholderTextColor="#98A2B3" style={styles.input} />
+        <TextInput value={assignedTo} onChangeText={setAssignedTo} placeholder="Nombre del técnico" placeholderTextColor={darkPalette.textMuted} style={styles.input} />
 
         <TouchableOpacity onPress={() => void handleSubmit()} disabled={saving} style={[styles.saveButton, saving && styles.saveButtonDisabled]}>
           <Text style={styles.saveButtonText}>{saving ? 'Guardando…' : 'Crear orden'}</Text>
@@ -236,46 +237,46 @@ export function MaintenanceOrderFormScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  header: { backgroundColor: '#FFFFFF', paddingTop: 55, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: '#E1E5EA', flexDirection: 'row', alignItems: 'center' },
-  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EEF2F6', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  backButtonText: { fontSize: 32, color: '#111827', lineHeight: 36 },
+  container: { flex: 1, backgroundColor: darkPalette.background },
+  header: { backgroundColor: darkPalette.surface, paddingTop: 55, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: darkPalette.borderStrong, flexDirection: 'row', alignItems: 'center' },
+  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: darkPalette.backgroundSecondary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  backButtonText: { fontSize: 32, color: darkPalette.textPrimary, lineHeight: 36 },
   headerText: { flex: 1 },
-  title: { fontSize: 26, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 15, color: '#667085', marginTop: 5 },
+  title: { fontSize: 26, fontWeight: '700', color: darkPalette.textPrimary },
+  subtitle: { fontSize: 15, color: darkPalette.textSecondary, marginTop: 5 },
   content: { padding: 20, paddingBottom: 50 },
-  label: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 7 },
-  input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, color: '#111827', marginBottom: 18 },
+  label: { fontSize: 14, fontWeight: '700', color: darkPalette.textPrimary, marginBottom: 7 },
+  input: { backgroundColor: darkPalette.surface, borderWidth: 1, borderColor: darkPalette.borderStrong, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, fontSize: 16, color: darkPalette.textPrimary, marginBottom: 18 },
   textArea: { height: 90, textAlignVertical: 'top' },
-  selector: { minHeight: 51, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#D0D5DD', borderRadius: 10, paddingHorizontal: 14, marginBottom: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selector: { minHeight: 51, backgroundColor: darkPalette.surface, borderWidth: 1, borderColor: darkPalette.borderStrong, borderRadius: 10, paddingHorizontal: 14, marginBottom: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   selectorContent: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  selectorText: { fontSize: 16, color: '#111827' },
-  selectorPlaceholder: { color: '#98A2B3' },
-  selectorLoading: { marginLeft: 10, fontSize: 15, color: '#667085' },
-  selectorArrow: { fontSize: 24, color: '#667085', marginLeft: 10 },
-  noAssetsHint: { fontSize: 13, color: '#667085', marginBottom: 18, marginTop: -10 },
+  selectorText: { fontSize: 16, color: darkPalette.textPrimary },
+  selectorPlaceholder: { color: darkPalette.textMuted },
+  selectorLoading: { marginLeft: 10, fontSize: 15, color: darkPalette.textSecondary },
+  selectorArrow: { fontSize: 24, color: darkPalette.textSecondary, marginLeft: 10 },
+  noAssetsHint: { fontSize: 13, color: darkPalette.textSecondary, marginBottom: 18, marginTop: -10 },
   optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
-  option: { borderWidth: 1, borderColor: '#D0D5DD', backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
-  optionSelected: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
-  optionText: { fontSize: 14, color: '#344054', fontWeight: '600' },
-  optionTextSelected: { color: '#2563EB', fontWeight: '700' },
-  saveButton: { backgroundColor: '#2563EB', borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  saveButtonDisabled: { backgroundColor: '#98A2B3' },
+  option: { borderWidth: 1, borderColor: darkPalette.borderStrong, backgroundColor: darkPalette.surface, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  optionSelected: { borderColor: darkPalette.brand, backgroundColor: darkPalette.brandSoft },
+  optionText: { fontSize: 14, color: darkPalette.textPrimary, fontWeight: '600' },
+  optionTextSelected: { color: darkPalette.brand, fontWeight: '700' },
+  saveButton: { backgroundColor: darkPalette.brand, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
+  saveButtonDisabled: { backgroundColor: darkPalette.disabled },
   saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.45)', justifyContent: 'flex-end' },
-  modal: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: '75%', paddingBottom: 30 },
-  modalHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#E1E5EA', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
-  modalSubtitle: { fontSize: 14, color: '#667085', marginTop: 4 },
-  closeButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#EEF2F6', alignItems: 'center', justifyContent: 'center' },
-  closeButtonText: { fontSize: 27, color: '#344054', lineHeight: 30 },
+  modal: { backgroundColor: darkPalette.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: '75%', paddingBottom: 30 },
+  modalHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: darkPalette.borderStrong, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  modalTitle: { fontSize: 20, fontWeight: '700', color: darkPalette.textPrimary },
+  modalSubtitle: { fontSize: 14, color: darkPalette.textSecondary, marginTop: 4 },
+  closeButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: darkPalette.backgroundSecondary, alignItems: 'center', justifyContent: 'center' },
+  closeButtonText: { fontSize: 27, color: darkPalette.textPrimary, lineHeight: 30 },
   emptyAssets: { padding: 30, alignItems: 'center' },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8 },
-  emptyDescription: { fontSize: 14, lineHeight: 21, color: '#667085', textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: darkPalette.textPrimary, marginBottom: 8 },
+  emptyDescription: { fontSize: 14, lineHeight: 21, color: darkPalette.textSecondary, textAlign: 'center' },
   assetList: { padding: 20 },
-  assetOption: { minHeight: 54, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, borderColor: '#E1E5EA', backgroundColor: '#FFFFFF', marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  assetOptionSelected: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
-  assetOptionText: { fontSize: 16, color: '#111827' },
-  assetOptionTextSelected: { color: '#2563EB', fontWeight: '700' },
-  checkmark: { fontSize: 20, color: '#2563EB', fontWeight: '700' },
+  assetOption: { minHeight: 54, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, borderColor: darkPalette.borderStrong, backgroundColor: darkPalette.surface, marginBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  assetOptionSelected: { borderColor: darkPalette.brand, backgroundColor: darkPalette.brandSoft },
+  assetOptionText: { fontSize: 16, color: darkPalette.textPrimary },
+  assetOptionTextSelected: { color: darkPalette.brand, fontWeight: '700' },
+  checkmark: { fontSize: 20, color: darkPalette.brand, fontWeight: '700' },
 });

@@ -34,7 +34,7 @@ export function AboutScreen(): React.JSX.Element {
         <Card>
           <View style={styles.metaRow}>
             <Text style={[styles.metaLabel, { color: palette.textSecondary }]}>Versión</Text>
-            <StatusBadge label="0.1.0 · Fase 2 (mock)" tone="accent" />
+            <StatusBadge label="0.1.0 · Fase 2 (mock)" tone="info" />
           </View>
           <View style={styles.metaRow}>
             <Text style={[styles.metaLabel, { color: palette.textSecondary }]}>Entorno</Text>

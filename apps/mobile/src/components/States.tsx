@@ -35,7 +35,7 @@ export function EmptyState(props: StateProps): React.JSX.Element {
 export function LoadingState({ label = 'Cargando…' }: { label?: string }): React.JSX.Element {
   const { palette } = useTheme();
   return (
-    <View style={styles.container}>
+    <View accessibilityRole="progressbar" accessibilityLabel={label} style={styles.container}>
       <ActivityIndicator size="large" color={palette.accent} />
       <Text style={[styles.detail, { color: palette.textSecondary }]}>{label}</Text>
     </View>
@@ -49,7 +49,7 @@ export function ErrorState({
   onRetry,
 }: StateProps & { retryLabel?: string; onRetry?: () => void }): React.JSX.Element {
   return (
-    <View style={styles.container}>
+    <View accessibilityRole="alert" style={styles.container}>
       <StateShell title={title} detail={detail} icon="alerts" />
       {onRetry !== undefined ? (
         <View style={styles.retry}>

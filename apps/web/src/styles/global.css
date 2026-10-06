@@ -4,6 +4,28 @@
   padding: 0;
 }
 
+:root {
+  color-scheme: dark;
+  --color-background: #0B0F1A;
+  --color-surface: #1E293B;
+  --color-surface-elevated: #2D3F56;
+  --color-border: #2F4F4F;
+  --color-text-primary: #F1F5F9;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+  --color-primary: #0047AB;
+  --color-accent: #00FFCC;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #38BDF8;
+  --color-disabled: #4B5563;
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --layout-page-max-width: 1280px;
+  --layout-gutter: 16px;
+}
+
 html, body, #root {
   height: 100%;
   width: 100%;
@@ -11,9 +33,9 @@ html, body, #root {
 }
 
 body {
-  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #0B0F1A;
-  color: #F1F5F9;
+  font-family: var(--font-sans);
+  background: var(--color-background);
+  color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -26,12 +48,12 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #111827; }
-::-webkit-scrollbar-thumb { background: #2F4F4F; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #374151; }
 
 /* Focus visible */
 :focus-visible {
-  outline: 2px solid #00FFCC;
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -39,5 +61,25 @@ body {
 /* Selection */
 ::selection {
   background: #0047AB40;
-  color: #F1F5F9;
+  color: var(--color-text-primary);
+}
+
+@keyframes ds-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive layout primitive for future content pages. The app shell stays platform-specific. */
+.ds-container {
+  width: 100%;
+  max-width: var(--layout-page-max-width);
+  margin-inline: auto;
+  padding-inline: var(--layout-gutter);
+}
+
+@media (min-width: 768px) {
+  :root { --layout-gutter: 24px; }
+}
+
+@media (min-width: 1024px) {
+  :root { --layout-gutter: 32px; }
 }

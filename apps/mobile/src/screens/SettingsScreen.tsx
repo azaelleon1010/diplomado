@@ -75,7 +75,7 @@ export function SettingsScreen(): React.JSX.Element {
             subtitle="Oscuro (principal)"
             icon="settings"
             badgeLabel="Dark"
-            badgeTone="accent"
+            badgeTone="info"
           />
           <StatusBadge label="Light mode: disponible en fase posterior" tone="neutral" />
         </Card>

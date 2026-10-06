@@ -8,10 +8,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useTheme } from '../theme/Theme';
-import { radii, spacing, typography } from '../theme/tokens';
+import { radii, spacing, typography, type ButtonVariant } from '../theme/tokens';
 import { Icon, type IconName } from './Icon';
-
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 interface ButtonProps {
   label: string;
@@ -62,7 +60,11 @@ export function Button({
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor, borderColor: palette.borderStrong, opacity: isDisabled ? 0.55 : pressed ? 0.85 : 1 },
+        {
+          backgroundColor: variant === 'primary' && pressed ? palette.brandPressed : backgroundColor,
+          borderColor: palette.borderStrong,
+          opacity: isDisabled ? 0.55 : pressed && variant !== 'primary' ? 0.85 : 1,
+        },
         variant === 'ghost' && styles.ghost,
         style,
       ]}>
@@ -83,19 +85,22 @@ interface IconButtonProps {
   onPress: () => void;
   label: string;
   badgeCount?: number;
+  disabled?: boolean;
 }
 
-export function IconButton({ icon, onPress, label, badgeCount }: IconButtonProps): React.JSX.Element {
+export function IconButton({ icon, onPress, label, badgeCount, disabled = false }: IconButtonProps): React.JSX.Element {
   const { palette } = useTheme();
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
       hitSlop={8}
       style={({ pressed }) => [
         styles.iconButton,
-        { backgroundColor: palette.surfaceSecondary, opacity: pressed ? 0.7 : 1 },
+        { backgroundColor: palette.surfaceSecondary, opacity: disabled ? 0.55 : pressed ? 0.7 : 1 },
       ]}>
       <Icon name={icon} size="md" color={palette.textPrimary} />
       {badgeCount !== undefined && badgeCount > 0 ? (
@@ -128,8 +133,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   iconButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: radii.full,
     alignItems: 'center',
     justifyContent: 'center',

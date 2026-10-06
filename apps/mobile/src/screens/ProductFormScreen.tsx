@@ -1,3 +1,4 @@
+import { darkPalette } from '../theme/tokens';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -212,7 +213,7 @@ export function ProductFormScreen(): React.JSX.Element {
           value={sku}
           onChangeText={setSku}
           placeholder="Ej. PROD-001"
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
           autoCapitalize="characters"
         />
@@ -223,7 +224,7 @@ export function ProductFormScreen(): React.JSX.Element {
           value={name}
           onChangeText={setName}
           placeholder="Ej. Laptop Dell"
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
         />
 
@@ -233,7 +234,7 @@ export function ProductFormScreen(): React.JSX.Element {
           value={description}
           onChangeText={setDescription}
           placeholder="Descripción del producto"
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={darkPalette.textMuted}
           style={[styles.input, styles.textArea]}
           multiline
         />
@@ -248,7 +249,7 @@ export function ProductFormScreen(): React.JSX.Element {
           <View style={styles.selectorContent}>
             {loadingCategories ? (
               <>
-                <ActivityIndicator size="small" color="#2563EB" />
+                <ActivityIndicator size="small" color={darkPalette.brand} />
                 <Text style={styles.selectorLoading}>
                   Cargando categorías...
                 </Text>
@@ -283,7 +284,7 @@ export function ProductFormScreen(): React.JSX.Element {
           value={unit}
           onChangeText={setUnit}
           placeholder="Ej. pieza, kg, litro"
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
         />
 
@@ -293,7 +294,7 @@ export function ProductFormScreen(): React.JSX.Element {
           value={barcode}
           onChangeText={setBarcode}
           placeholder="Código de barras"
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
           keyboardType="numeric"
         />
@@ -304,7 +305,7 @@ export function ProductFormScreen(): React.JSX.Element {
           value={cost}
           onChangeText={setCost}
           placeholder="0.00"
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
           keyboardType="decimal-pad"
         />
@@ -315,7 +316,7 @@ export function ProductFormScreen(): React.JSX.Element {
           value={price}
           onChangeText={setPrice}
           placeholder="0.00"
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
           keyboardType="decimal-pad"
         />
@@ -326,7 +327,7 @@ export function ProductFormScreen(): React.JSX.Element {
           value={minimumStock}
           onChangeText={setMinimumStock}
           placeholder="0"
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
           keyboardType="numeric"
         />
@@ -337,7 +338,7 @@ export function ProductFormScreen(): React.JSX.Element {
           value={maximumStock}
           onChangeText={setMaximumStock}
           placeholder="Opcional"
-          placeholderTextColor="#98A2B3"
+          placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
           keyboardType="numeric"
         />
@@ -452,16 +453,16 @@ export function ProductFormScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: darkPalette.background,
   },
 
   header: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: darkPalette.surface,
     paddingTop: 55,
     paddingHorizontal: 20,
     paddingBottom: 18,
     borderBottomWidth: 1,
-    borderBottomColor: '#E1E5EA',
+    borderBottomColor: darkPalette.borderStrong,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -470,7 +471,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#EEF2F6',
+    backgroundColor: darkPalette.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -478,7 +479,7 @@ const styles = StyleSheet.create({
 
   backButtonText: {
     fontSize: 32,
-    color: '#111827',
+    color: darkPalette.textPrimary,
     lineHeight: 36,
   },
 
@@ -489,12 +490,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#111827',
+    color: darkPalette.textPrimary,
   },
 
   subtitle: {
     fontSize: 15,
-    color: '#667085',
+    color: darkPalette.textSecondary,
     marginTop: 5,
   },
 
@@ -506,19 +507,19 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: darkPalette.textPrimary,
     marginBottom: 7,
   },
 
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: darkPalette.surface,
     borderWidth: 1,
-    borderColor: '#D0D5DD',
+    borderColor: darkPalette.borderStrong,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 13,
     fontSize: 16,
-    color: '#111827',
+    color: darkPalette.textPrimary,
     marginBottom: 18,
   },
 
@@ -529,9 +530,9 @@ const styles = StyleSheet.create({
 
   selector: {
     minHeight: 51,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: darkPalette.surface,
     borderWidth: 1,
-    borderColor: '#D0D5DD',
+    borderColor: darkPalette.borderStrong,
     borderRadius: 10,
     paddingHorizontal: 14,
     marginBottom: 18,
@@ -548,28 +549,28 @@ const styles = StyleSheet.create({
 
   selectorText: {
     fontSize: 16,
-    color: '#111827',
+    color: darkPalette.textPrimary,
   },
 
   selectorPlaceholder: {
-    color: '#98A2B3',
+    color: darkPalette.textMuted,
   },
 
   selectorLoading: {
     marginLeft: 10,
     fontSize: 15,
-    color: '#667085',
+    color: darkPalette.textSecondary,
   },
 
   selectorArrow: {
     fontSize: 24,
-    color: '#667085',
+    color: darkPalette.textSecondary,
     marginLeft: 10,
   },
 
   noCategoriesHint: {
     fontSize: 13,
-    color: '#667085',
+    color: darkPalette.textSecondary,
     marginBottom: 18,
     marginTop: -10,
   },
@@ -578,9 +579,9 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 25,
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: darkPalette.surface,
     borderWidth: 1,
-    borderColor: '#E1E5EA',
+    borderColor: darkPalette.borderStrong,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -595,24 +596,24 @@ const styles = StyleSheet.create({
   switchTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: darkPalette.textPrimary,
   },
 
   switchDescription: {
     marginTop: 4,
     fontSize: 13,
-    color: '#667085',
+    color: darkPalette.textSecondary,
   },
 
   saveButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: darkPalette.brand,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
   },
 
   saveButtonDisabled: {
-    backgroundColor: '#98A2B3',
+    backgroundColor: darkPalette.disabled,
   },
 
   saveButtonText: {
@@ -628,7 +629,7 @@ const styles = StyleSheet.create({
   },
 
   modal: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: darkPalette.surface,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     maxHeight: '75%',
@@ -640,7 +641,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E1E5EA',
+    borderBottomColor: darkPalette.borderStrong,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -649,12 +650,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: darkPalette.textPrimary,
   },
 
   modalSubtitle: {
     fontSize: 14,
-    color: '#667085',
+    color: darkPalette.textSecondary,
     marginTop: 4,
   },
 
@@ -662,14 +663,14 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#EEF2F6',
+    backgroundColor: darkPalette.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   closeButtonText: {
     fontSize: 27,
-    color: '#344054',
+    color: darkPalette.textPrimary,
     lineHeight: 30,
   },
 
@@ -682,8 +683,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E1E5EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: darkPalette.borderStrong,
+    backgroundColor: darkPalette.surface,
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -691,23 +692,23 @@ const styles = StyleSheet.create({
   },
 
   categoryOptionSelected: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
+    borderColor: darkPalette.brand,
+    backgroundColor: darkPalette.brandSoft,
   },
 
   categoryOptionText: {
     fontSize: 16,
-    color: '#111827',
+    color: darkPalette.textPrimary,
   },
 
   categoryOptionTextSelected: {
-    color: '#2563EB',
+    color: darkPalette.brand,
     fontWeight: '700',
   },
 
   checkmark: {
     fontSize: 20,
-    color: '#2563EB',
+    color: darkPalette.brand,
     fontWeight: '700',
   },
 
@@ -719,14 +720,14 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: darkPalette.textPrimary,
     marginBottom: 8,
   },
 
   emptyDescription: {
     fontSize: 14,
     lineHeight: 21,
-    color: '#667085',
+    color: darkPalette.textSecondary,
     textAlign: 'center',
   },
 });
