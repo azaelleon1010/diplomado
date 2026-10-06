@@ -33,6 +33,39 @@ function ok(res: Response, req: Request, data: unknown, status = 200, meta?: Rec
 
 export function createAuthController(deps: RegisterDeps) {
   return {
+    async getTenantBySlug(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const slug = String(req.params.slug ?? '').trim().toLowerCase();
+
+        if (!slug) {
+          throw new Error('Tenant slug is required');
+        }
+
+        const tenant = await deps.tenants.findBySlug(slug);
+
+        if (!tenant || tenant.status !== 'ACTIVE') {
+          res.status(404).json({
+            success: false,
+            error: {
+              code: 'TENANT_NOT_FOUND',
+              message: 'Empresa no encontrada',
+              fields: {},
+            },
+            traceId: req.traceId,
+          });
+          return;
+        }
+
+        ok(res, req, {
+          tenantId: tenant.tenantId,
+          name: tenant.name,
+          slug: tenant.slug,
+        });
+      } catch (err) {
+        next(err);
+      }
+    },
+
     async postRegister(req: Request, res: Response, next: NextFunction): Promise<void> {
       try {
         const dto = registerSchema.parse(req.body);

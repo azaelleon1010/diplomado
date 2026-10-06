@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native-web';
 import { useTheme } from '../theme/Theme';
-import { friendlyMessage } from '../lib/api';
+import { authApi, friendlyMessage } from '../lib/api';
 import { useAuth } from '../auth/AuthContext';
 
 interface LoginScreenProps {
@@ -11,20 +11,23 @@ interface LoginScreenProps {
 export function LoginScreen({ onNavigate }: LoginScreenProps) {
   const t = useTheme();
   const { login } = useAuth();
+  const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!email.trim() || !password) {
-      setError('Ingresa tu correo y contraseña.');
+    if (!company.trim() || !email.trim() || !password) {
+      setError('Ingresa tu empresa, correo y contraseña.');
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await login(email.trim(), password);
+      const tenant = await authApi.resolveTenant(company.trim());
+
+      await login(email.trim(), password, tenant.tenantId);
       onNavigate('/dashboard');
     } catch (err) {
       setError(friendlyMessage(err));
@@ -38,6 +41,24 @@ export function LoginScreen({ onNavigate }: LoginScreenProps) {
       <View style={[styles.card, { backgroundColor: t.colors.surface.primary, borderColor: t.colors.border.secondary }]}>
         <Text style={[styles.brand, { color: t.colors.text.primary }]}>TramaTech ERP</Text>
         <Text style={[styles.slogan, { color: t.colors.text.muted }]}>La red que mueve tu producción.</Text>
+
+        <Text style={[styles.label, { color: t.colors.text.secondary }]}>Empresa</Text>
+        <TextInput
+          value={company}
+          onChangeText={setCompany}
+          placeholder="mi-empresa"
+          placeholderTextColor={t.colors.text.muted}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={[
+            styles.input,
+            {
+              color: t.colors.text.primary,
+              borderColor: t.colors.border.secondary,
+              backgroundColor: t.colors.background.secondary,
+            },
+          ]}
+        />
 
         <Text style={[styles.label, { color: t.colors.text.secondary }]}>Correo electrónico</Text>
         <TextInput

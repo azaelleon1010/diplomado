@@ -42,10 +42,13 @@ export function buildAuthMiddleware(deps: IdentityDeps): AuthMiddlewareDeps {
 export function createAuthRouter(deps: RegisterDeps, auth: AuthMiddlewareDeps) {
   const router = Router();
   const controller = createAuthController(deps);
+
+  router.get('/tenant/:slug', controller.getTenantBySlug);
   router.post('/register', controller.postRegister);
   router.post('/login', controller.postLogin);
   router.post('/refresh', controller.postRefresh);
   router.post('/logout', authenticate(auth), requireTenant(), controller.postLogout);
+
   return router;
 }
 

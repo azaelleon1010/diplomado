@@ -115,8 +115,14 @@ export interface RegisterInput {
 export const authApi = {
   register: (input: RegisterInput) =>
     apiRequest<AuthTokens>('/api/v1/auth/register', { method: 'POST', body: input }),
-  login: (email: string, password: string) =>
-    apiRequest<AuthTokens>('/api/v1/auth/login', { method: 'POST', body: { email, password } }),
+  login: (email: string, password: string, tenantId: string) =>
+    apiRequest<AuthTokens>('/api/v1/auth/login', {
+      method: 'POST',
+      body: { email, password, tenantId },
+    }),
+
+  resolveTenant: (slug: string) =>
+    apiRequest<AuthTenant>(`/api/v1/auth/tenant/${encodeURIComponent(slug)}`),
   refresh: (refreshToken: string) =>
     apiRequest<AuthTokens>('/api/v1/auth/refresh', { method: 'POST', body: { refreshToken } }),
   logout: (accessToken: string) =>
