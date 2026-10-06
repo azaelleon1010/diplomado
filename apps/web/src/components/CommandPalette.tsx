@@ -1,89 +1,68 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList } from 'react-native-web';
+import React, { useCallback, useEffect, useState } from 'react';
+import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native-web';
+import { colors, zIndex } from '../theme/tokens';
 import { useTheme } from '../theme/Theme';
-import { zIndex } from '../theme/tokens';
-
-interface Command {
-  label: string;
-  path: string;
-  category: string;
-  shortcut?: string;
-}
-
-const commands: Command[] = [
-  { label: 'Dashboard', path: '/dashboard', category: 'Inicio', shortcut: 'Ctrl+/' },
-  { label: 'Inventario', path: '/operations/inventory', category: 'Operaciones' },
-  { label: 'Producción', path: '/operations/production', category: 'Operaciones' },
-  { label: 'Mantenimiento', path: '/operations/maintenance', category: 'Operaciones' },
-  { label: 'Compras', path: '/procurement/purchases', category: 'Abastecimiento' },
-  { label: 'RRHH', path: '/people/employees', category: 'Personas' },
-  { label: 'Asistente', path: '/assistant', category: 'ConvOps' },
-];
+import { getCommandRoutes } from '../navigation/registry';
 
 interface CommandPaletteProps {
   visible: boolean;
+  permissions: readonly string[];
   onClose: () => void;
   onSelect: (path: string) => void;
 }
 
-export function CommandPalette({ visible, onClose, onSelect }: CommandPaletteProps) {
+export function CommandPalette({ visible, permissions, onClose, onSelect }: CommandPaletteProps): React.JSX.Element | null {
   const [query, setQuery] = useState('');
-  const t = useTheme();
+  const { semanticColors: color } = useTheme();
+  const commands = getCommandRoutes(permissions);
 
   useEffect(() => {
     if (!visible) setQuery('');
   }, [visible]);
 
   const filtered = query
-    ? commands.filter(
-        (c) =>
-          c.label.toLowerCase().includes(query.toLowerCase()) ||
-          c.category.toLowerCase().includes(query.toLowerCase())
+    ? commands.filter((command) =>
+        command.title.toLowerCase().includes(query.toLowerCase())
+        || command.section.toLowerCase().includes(query.toLowerCase()),
       )
     : commands;
 
-  const handleSelect = useCallback(
-    (path: string) => {
-      onSelect(path);
-      onClose();
-    },
-    [onSelect, onClose]
-  );
+  const handleSelect = useCallback((path: string) => {
+    onSelect(path);
+    onClose();
+  }, [onSelect, onClose]);
 
   if (!visible) return null;
 
   return (
-    <View style={[styles.overlay, { zIndex: zIndex.commandPalette }]}>
-      <View style={styles.container}>
+    <View style={[styles.overlay, { zIndex: zIndex.commandPalette, backgroundColor: colors.surface.overlay }]}>
+      <View style={[styles.container, { backgroundColor: color.surface, borderColor: color.border }]}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: color.textPrimary, borderBottomColor: color.border }]}
           value={query}
           onChangeText={setQuery}
-          placeholder="Buscar módulos, acciones, comandos..."
-          placeholderTextColor="#64748B"
+          placeholder="Buscar módulos y pantallas…"
+          placeholderTextColor={color.textMuted}
           autoFocus
-          accessibilityLabel="Command palette search"
+          accessibilityLabel="Buscar en la paleta de comandos"
         />
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.path}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.item}
+              style={[styles.item, { borderBottomColor: color.neutralSoft }]}
               onPress={() => handleSelect(item.path)}
-              accessible
-              accessibilityLabel={item.label}
-            >
-              <Text style={styles.itemLabel}>{item.label}</Text>
-              <Text style={styles.itemCategory}>{item.category}</Text>
+              accessibilityRole="button"
+              accessibilityLabel={item.title}>
+              <Text style={[styles.itemLabel, { color: color.textPrimary }]}>{item.title}</Text>
+              <Text style={[styles.itemCategory, { color: color.textMuted }]}>{item.section}</Text>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={
-            <Text style={styles.empty}>No se encontraron resultados.</Text>
-          }
+          ListEmptyComponent={<Text style={[styles.empty, { color: color.textMuted }]}>No se encontraron resultados.</Text>}
           keyboardShouldPersistTaps="handled"
         />
-        <Text style={styles.hint}>Ctrl+K / Cmd+K · Esc para cerrar</Text>
+        <Text style={[styles.hint, { color: color.textMuted, borderTopColor: color.neutralSoft }]}>Ctrl+K / Cmd+K · Esc para cerrar</Text>
       </View>
     </View>
   );
@@ -93,22 +72,18 @@ const styles = StyleSheet.create({
   overlay: {
     position: 'absolute',
     top: 0,
-    left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#0B0F1A80',
+    left: 0,
     justifyContent: 'flex-start',
     paddingTop: '15vh',
-    zIndex: 200,
   },
   container: {
-    backgroundColor: '#1E293B',
     borderRadius: 12,
     marginHorizontal: '10%',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#2F4F4F',
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 24,
@@ -116,10 +91,8 @@ const styles = StyleSheet.create({
   input: {
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: '#F1F5F9',
     fontSize: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#2F4F4F',
     fontFamily: "'IBM Plex Sans', sans-serif",
   },
   item: {
@@ -129,29 +102,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#253347',
   },
-  itemLabel: {
-    color: '#F1F5F9',
-    fontSize: 14,
-  },
-  itemCategory: {
-    color: '#64748B',
-    fontSize: 11,
-  },
-  empty: {
-    color: '#64748B',
-    fontSize: 13,
-    padding: 16,
-    textAlign: 'center',
-  },
+  itemLabel: { fontSize: 14 },
+  itemCategory: { fontSize: 11 },
+  empty: { fontSize: 13, padding: 16, textAlign: 'center' },
   hint: {
-    color: '#4B5563',
     fontSize: 10,
     paddingHorizontal: 16,
     paddingVertical: 8,
     textAlign: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#253347',
   },
 });

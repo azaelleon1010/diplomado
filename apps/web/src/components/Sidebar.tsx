@@ -1,115 +1,43 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native-web';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native-web';
 import { useTheme } from '../theme/Theme';
 import { TramaTechLogo } from './TramaTechLogo';
 import { SidebarGroup } from './SidebarGroup';
-import { sidebar } from '../theme/tokens';
-
-interface NavItem {
-  label: string;
-  path: string;
-  icon?: string;
-}
-
-interface NavGroup {
-  title: string;
-  items: NavItem[];
-  defaultExpanded?: boolean;
-}
-
-const navStructure: NavGroup[] = [
-  {
-    title: 'INICIO',
-    items: [
-      { label: 'Dashboard', path: '/dashboard' },
-      { label: 'Mi trabajo', path: '/mywork' },
-    ],
-    defaultExpanded: true,
-  },
-  {
-    title: 'OPERACIONES',
-    items: [
-      { label: 'Producción', path: '/operations/production' },
-      { label: 'Inventario', path: '/operations/inventory' },
-      { label: 'Almacenes', path: '/operations/warehouses' },
-      { label: 'Mantenimiento', path: '/operations/maintenance' },
-      { label: 'Calidad', path: '/operations/quality' },
-    ],
-  },
-  {
-    title: 'ABASTECIMIENTO',
-    items: [
-      { label: 'Compras', path: '/procurement/purchases' },
-      { label: 'Proveedores', path: '/procurement/suppliers' },
-      { label: 'Recepción', path: '/procurement/receiving' },
-    ],
-  },
-  {
-    title: 'COMERCIAL',
-    items: [
-      { label: 'Clientes', path: '/sales/customers' },
-      { label: 'Ventas', path: '/sales/orders' },
-      { label: 'Pedidos', path: '/sales/orders' },
-    ],
-  },
-  {
-    title: 'FINANZAS',
-    items: [
-      { label: 'Contabilidad', path: '/finance/accounting' },
-      { label: 'Cuentas por cobrar', path: '/finance/receivables' },
-      { label: 'Cuentas por pagar', path: '/finance/payables' },
-      { label: 'Tesorería', path: '/finance/treasury' },
-    ],
-  },
-  {
-    title: 'PERSONAS',
-    items: [
-      { label: 'Empleados', path: '/people/employees' },
-      { label: 'Asistencia', path: '/people/attendance' },
-      { label: 'Vacaciones', path: '/people/vacations' },
-    ],
-  },
-  {
-    title: 'DATOS',
-    items: [
-      { label: 'Productos', path: '/master-data/products' },
-      { label: 'Materiales', path: '/master-data/materials' },
-      { label: 'Maquinaria', path: '/master-data/machines' },
-    ],
-  },
-  {
-    title: 'ANALÍTICA',
-    items: [
-      { label: 'KPIs', path: '/analytics/kpis' },
-      { label: 'Reportes', path: '/analytics/reports' },
-    ],
-  },
-  {
-    title: 'ADMINISTRACIÓN',
-    items: [
-      { label: 'Usuarios', path: '/administration/users' },
-      { label: 'Roles y permisos', path: '/administration/roles' },
-      { label: 'Configuración', path: '/administration/settings' },
-    ],
-  },
-];
+import { getVisibleNavigationGroups, isRouteActive } from '../navigation/registry';
 
 interface SidebarProps {
   collapsed: boolean;
-  onToggle: () => void;
+  mobile?: boolean;
+  permissions: readonly string[];
   currentPath: string;
+  onToggle: () => void;
   onNavigate: (path: string) => void;
 }
 
-export function Sidebar({ collapsed, onToggle, currentPath, onNavigate }: SidebarProps) {
-  const t = useTheme();
+export function Sidebar({
+  collapsed,
+  mobile = false,
+  permissions,
+  currentPath,
+  onToggle,
+  onNavigate,
+}: SidebarProps): React.JSX.Element {
+  const { semanticColors: color, sidebar } = useTheme();
+  const groups = getVisibleNavigationGroups(permissions);
+  const activeGroup = groups.find((group) => group.items.some((route) => isRouteActive(currentPath, route.path)))?.title;
   const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(
-    new Set(navStructure.filter((g) => g.defaultExpanded).map((g) => g.title))
+    () => new Set(activeGroup ? [activeGroup] : ['Inicio']),
   );
 
+  React.useEffect(() => {
+    if (activeGroup) {
+      setExpandedGroups((previous) => new Set(previous).add(activeGroup));
+    }
+  }, [activeGroup]);
+
   const toggleGroup = (title: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
+    setExpandedGroups((previous) => {
+      const next = new Set(previous);
       if (next.has(title)) next.delete(title);
       else next.add(title);
       return next;
@@ -118,55 +46,74 @@ export function Sidebar({ collapsed, onToggle, currentPath, onNavigate }: Sideba
 
   return (
     <View
+      accessibilityRole="navigation"
+      accessibilityLabel="Navegación principal"
       style={[
         styles.sidebar,
-        { width: collapsed ? t.sidebar.collapsed : t.sidebar.expanded },
-      ]}
-    >
-      <View style={styles.logoContainer}>
+        { width: collapsed ? sidebar.collapsed : sidebar.expanded, backgroundColor: color.background, borderRightColor: color.border },
+        mobile && styles.mobileSidebar,
+      ]}>
+      <View style={[styles.logoContainer, { borderBottomColor: color.border }]}>
         <TramaTechLogo collapsed={collapsed} />
+        {mobile ? (
+          <TouchableOpacity
+            onPress={onToggle}
+            style={styles.closeButton}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar menú de navegación">
+            <Text style={[styles.closeText, { color: color.textSecondary }]}>×</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
-      <TouchableOpacity style={styles.toggleButton} onPress={onToggle} accessibilityLabel="Toggle sidebar">
-        <Text style={styles.toggleText}>{collapsed ? '◀' : '▶'}</Text>
-      </TouchableOpacity>
+      {!mobile ? (
+        <TouchableOpacity
+          style={styles.toggleButton}
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityLabel={collapsed ? 'Expandir menú de navegación' : 'Colapsar menú de navegación'}>
+          <Text style={[styles.toggleText, { color: color.textSecondary }]}>{collapsed ? '›' : '‹'}</Text>
+        </TouchableOpacity>
+      ) : null}
 
       <ScrollView style={styles.navList} showsVerticalScrollIndicator={false}>
-        {navStructure.map((group) => (
+        {groups.map((group) => (
           <SidebarGroup
             key={group.title}
             title={group.title}
             expanded={expandedGroups.has(group.title)}
             onToggle={() => toggleGroup(group.title)}
-            collapsed={collapsed}
-          >
-            {group.items.map((item) => (
-              <TouchableOpacity
-                key={item.path}
-                style={[
-                  styles.navItem,
-                  currentPath === item.path && styles.navItemActive,
-                ]}
-                onPress={() => onNavigate(item.path)}
-                accessible
-                accessibilityLabel={item.label}
-                accessibilityRole="button"
-              >
-                <Text
+            collapsed={collapsed}>
+            {group.items.map((item) => {
+              const active = isRouteActive(currentPath, item.path);
+              return (
+                <TouchableOpacity
+                  key={item.path}
                   style={[
-                    styles.navItemText,
-                    currentPath === item.path && styles.navItemTextActive,
-                    collapsed && styles.navItemTextCollapsed,
+                    styles.navItem,
+                    { borderLeftColor: active ? color.secondary : 'transparent' },
+                    active && { backgroundColor: color.neutralSoft },
+                    collapsed && styles.navItemCollapsed,
                   ]}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
-                {currentPath === item.path && !collapsed && (
-                  <View style={styles.activeIndicator} />
-                )}
-              </TouchableOpacity>
-            ))}
+                  onPress={() => onNavigate(item.path)}
+                  title={collapsed ? item.title : undefined}
+                  accessibilityLabel={item.title}
+                  accessibilityHint={collapsed ? `Abrir ${item.title}` : undefined}
+                  accessibilityState={{ selected: active }}
+                  accessibilityRole="button">
+                  <Text style={[styles.navIcon, { color: active ? color.secondary : color.textSecondary }]} aria-hidden>
+                    {item.icon}
+                  </Text>
+                  {!collapsed ? (
+                    <Text
+                      style={[styles.navItemText, { color: active ? color.textPrimary : color.textSecondary }]}
+                      numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
           </SidebarGroup>
         ))}
       </ScrollView>
@@ -176,66 +123,43 @@ export function Sidebar({ collapsed, onToggle, currentPath, onNavigate }: Sideba
 
 const styles = StyleSheet.create({
   sidebar: {
-    backgroundColor: '#0B0F1A',
-    borderRightWidth: 1,
-    borderRightColor: '#1F2937',
+    flexShrink: 0,
     flexDirection: 'column',
-    position: 'relative',
     overflow: 'hidden',
-    transition: 'width 0.2s ease',
+    borderRightWidth: 1,
+    zIndex: 100,
+  },
+  mobileSidebar: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 151,
+    elevation: 8,
   },
   logoContainer: {
-    height: 56,
+    minHeight: 64,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
   },
-  toggleButton: {
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  toggleText: {
-    color: '#94A3B8',
-    fontSize: 12,
-  },
-  navList: {
-    flex: 1,
-    paddingVertical: 8,
-  },
+  closeButton: { position: 'absolute', right: 8, top: 14, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  closeText: { fontSize: 26, lineHeight: 30 },
+  toggleButton: { height: 36, justifyContent: 'center', alignItems: 'flex-end', paddingHorizontal: 18 },
+  toggleText: { fontSize: 22, lineHeight: 28 },
+  navList: { flex: 1, paddingVertical: 8 },
   navItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 40,
-  },
-  navItemActive: {
-    backgroundColor: '#0047AB20',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#0047AB',
   },
-  navItemText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    flex: 1,
-  },
-  navItemTextActive: {
-    color: '#F1F5F9',
-    fontWeight: '600',
-  },
-  navItemTextCollapsed: {
-    fontSize: 0,
-    opacity: 0,
-  },
-  activeIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00FFCC',
-    marginLeft: 8,
-  },
+  navItemCollapsed: { justifyContent: 'center', paddingHorizontal: 8 },
+  navIcon: { width: 20, textAlign: 'center', fontSize: 17, lineHeight: 22 },
+  navItemText: { flex: 1, fontSize: 13, lineHeight: 18 },
 });

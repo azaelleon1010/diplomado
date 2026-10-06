@@ -1,36 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Dashboard } from '../components/Dashboard';
 import { AssistantPanel } from '../components/AssistantPanel';
 import { ModulePlaceholder } from '../screens/ModulePlaceholder';
 import { LoginScreen } from '../screens/Login';
 import { RegisterScreen } from '../screens/Register';
+import { RouteStateScreen } from '../screens/RouteStateScreen';
+import { ROUTE_DEFINITIONS, getRouteDefinition, canAccessRoute } from './registry';
 
-const ROUTES: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/assistant': 'ConvOps Assistant',
-  '/operations/production': 'Producción',
-  '/operations/inventory': 'Inventario',
-  '/operations/warehouses': 'Almacenes',
-  '/operations/maintenance': 'Mantenimiento',
-  '/operations/quality': 'Calidad',
-  '/procurement/purchases': 'Compras',
-  '/procurement/suppliers': 'Proveedores',
-  '/sales/customers': 'Clientes',
-  '/sales/orders': 'Pedidos',
-  '/finance/accounting': 'Contabilidad',
-  '/finance/receivables': 'Cuentas por cobrar',
-  '/finance/payables': 'Cuentas por pagar',
-  '/finance/treasury': 'Tesorería',
-  '/people/employees': 'Empleados',
-  '/people/attendance': 'Asistencia',
-  '/people/vacations': 'Vacaciones',
-  '/master-data/products': 'Productos',
-  '/master-data/materials': 'Materiales',
-  '/master-data/machines': 'Maquinaria',
-  '/analytics': 'Analítica',
-  '/integrations': 'Integraciones',
-  '/administration': 'Administración',
-};
+export const PUBLIC_ROUTES = ['/login', '/register'];
 
 export function useNavigation() {
   const [path, setPath] = useState(() => window.location.pathname || '/dashboard');
@@ -44,6 +20,10 @@ export function useNavigation() {
   }, []);
 
   const navigate = useCallback((target: string) => {
+    if (window.location.pathname === target) {
+      setPath(target);
+      return;
+    }
     window.history.pushState({}, '', target);
     setPath(target);
   }, []);
@@ -51,20 +31,50 @@ export function useNavigation() {
   return { path, navigate };
 }
 
-export const PUBLIC_ROUTES = ['/login', '/register'];
-
-export interface DashboardSession {
-  userName: string;
-  email: string;
-  tenantName: string;
-}
-
-export function renderRoute(path: string, onNavigate: (target: string) => void, session?: DashboardSession | null) {
+export function renderRoute(
+  path: string,
+  onNavigate: (target: string) => void,
+  permissions: readonly string[] = [],
+) {
   if (path === '/login') return <LoginScreen onNavigate={onNavigate} />;
   if (path === '/register') return <RegisterScreen onNavigate={onNavigate} />;
-  if (path === '/dashboard') return <Dashboard currentPath={path} session={session} />;
+  if (path === '/') return <ModulePlaceholder moduleName="Dashboard" />;
+
+  if (!canAccessRoute(path, permissions)) {
+    return (
+      <RouteStateScreen
+        title="Acceso no permitido"
+        detail="Tu sesión no tiene un permiso disponible para abrir esta sección."
+        actionLabel="Ir al inicio"
+        onAction={() => onNavigate('/dashboard')}
+      />
+    );
+  }
+
   if (path === '/assistant') return <AssistantPanel />;
-  const moduleName = ROUTES[path];
-  if (moduleName) return <ModulePlaceholder moduleName={moduleName} />;
-  return <ModulePlaceholder moduleName="Inicio" />;
+  if (path === '/dashboard') return <ModulePlaceholder moduleName="Dashboard" />;
+
+  const exactRoute = ROUTE_DEFINITIONS.find((route) => route.path === path);
+  if (exactRoute) return <ModulePlaceholder moduleName={exactRoute.title} />;
+
+  const parentRoute = getRouteDefinition(path);
+  if (parentRoute) {
+    return (
+      <RouteStateScreen
+        title="Ruta no encontrada"
+        detail="La dirección solicitada no corresponde a una pantalla disponible."
+        actionLabel="Ir al inicio"
+        onAction={() => onNavigate('/dashboard')}
+      />
+    );
+  }
+
+  return (
+    <RouteStateScreen
+      title="Ruta no encontrada"
+      detail="La dirección solicitada no corresponde a una pantalla disponible."
+      actionLabel="Ir al inicio"
+      onAction={() => onNavigate('/dashboard')}
+    />
+  );
 }

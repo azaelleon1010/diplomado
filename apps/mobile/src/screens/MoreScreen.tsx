@@ -10,22 +10,20 @@ import { ListItem } from '../components/ListItem';
 import { Card } from '../components/Card';
 import { Avatar } from '../components/Avatar';
 import { unreadAlertsCount } from '../data/alerts';
-import { type IconName } from '../components/Icon';
 import { Text } from 'react-native';
-
-const MODULE_ROUTES = [
-  { title: 'Inventario', detail: 'Materiales y almacenes', icon: 'inventory', target: 'Inventory' },
-  { title: 'Mantenimiento', detail: 'Incidencias y equipos', icon: 'maintenance', target: 'Maintenance' },
-  { title: 'Producción', detail: 'Órdenes y avance', icon: 'production', target: 'Production' },
-  { title: 'Compras', detail: 'Órdenes y proveedores', icon: 'purchasing', target: 'Purchasing' },
-  { title: 'Recursos Humanos', detail: 'Turnos y vacaciones', icon: 'hr', target: 'HR' },
-  { title: 'Finanzas', detail: 'Resumen inicial', icon: 'finance', target: 'Finance' },
-] as const;
+import { getVisibleModules, getVisibleModulesForSection } from '../navigation/moduleAccess';
+import { EmptyState } from '../components/States';
 
 export function MoreScreen(): React.JSX.Element {
   const { palette } = useTheme();
-  const { userName, signOut } = useAuth();
+  const { userName, user, me, signOut } = useAuth();
   const navigation = useAppNavigation();
+  const modules = getVisibleModules(me?.permissions ?? []);
+  const moduleGroups = (['Operaciones', 'Personas', 'Finanzas'] as const)
+    .map((section) => ({ section, items: getVisibleModulesForSection(me?.permissions ?? [], section) }))
+    .filter((group) => group.items.length > 0);
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.username || userName;
+  const tenantId = me?.membership.tenantId ?? user?.tenantId ?? 'No disponible';
 
   return (
     <View style={[styles.flex, { backgroundColor: palette.background }]}>
@@ -37,31 +35,45 @@ export function MoreScreen(): React.JSX.Element {
         userName={userName}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <SectionHeader title="Perfil" />
         <Card>
           <View style={styles.profileRow}>
-            <Avatar name={userName} size={52} />
+            <Avatar name={fullName} size={52} />
             <View style={styles.profileText}>
-              <Text style={[styles.profileName, { color: palette.textPrimary }]}>{userName}</Text>
+              <Text style={[styles.profileName, { color: palette.textPrimary }]}>{fullName}</Text>
               <Text style={[styles.profileRole, { color: palette.textSecondary }]}>
-                Supervisor de planta · Planta MX-01
+                {user?.email ?? 'Correo no disponible'}
+              </Text>
+              <Text style={[styles.profileRole, { color: palette.textSecondary }]}>
+                Tenant: {tenantId}
               </Text>
             </View>
           </View>
         </Card>
 
-        <SectionHeader title="Módulos" />
-        <Card style={styles.listCard}>
-          {MODULE_ROUTES.map((m) => (
-            <ListItem
-              key={m.target}
-              title={m.title}
-              subtitle={m.detail}
-              icon={m.icon as IconName}
-              showChevron
-              onPress={() => navigation.navigate('Operations', { screen: m.target } as never)}
-            />
-          ))}
-        </Card>
+        <SectionHeader title="Módulos disponibles" />
+        {moduleGroups.map((group) => (
+          <React.Fragment key={group.section}>
+            <SectionHeader title={group.section} />
+            <Card style={styles.listCard}>
+              {group.items.map((m) => (
+                <ListItem
+                  key={m.key}
+                  title={m.title}
+                  subtitle={m.detail}
+                  icon={m.icon}
+                  showChevron
+                  onPress={() => navigation.navigate('Operations', { screen: m.route } as never)}
+                />
+              ))}
+            </Card>
+          </React.Fragment>
+        ))}
+        {modules.length === 0 ? (
+          <Card style={styles.listCard}>
+            <EmptyState title="Sin módulos disponibles" detail="Los módulos aparecen aquí según los permisos de tu sesión." />
+          </Card>
+        ) : null}
 
         <SectionHeader title="Cuenta" />
         <Card style={styles.listCard}>
@@ -79,7 +91,7 @@ export function MoreScreen(): React.JSX.Element {
             showChevron
             onPress={() => navigation.navigate('About')}
           />
-          <ListItem title="Cerrar sesión" subtitle="Volver al login (mock)" icon="logout" onPress={signOut} />
+          <ListItem title="Cerrar sesión" subtitle="Salir de esta sesión" icon="logout" onPress={() => { void signOut(); }} />
         </Card>
       </ScrollView>
     </View>

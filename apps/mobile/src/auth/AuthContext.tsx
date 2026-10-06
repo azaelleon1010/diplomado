@@ -18,6 +18,7 @@ import {
   type RegisterInput,
   type StoredSession,
 } from '../lib/api';
+import { subscribeToSessionExpiry } from './sessionEvents';
 
 interface AuthContextValue {
   signedIn: boolean;
@@ -68,6 +69,14 @@ export function AuthProvider({
   const [me, setMe] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => subscribeToSessionExpiry(() => {
+    void clearSession().catch(() => undefined);
+    setSession(null);
+    setUser(null);
+    setMe(null);
+    setError('Tu sesión expiró. Inicia sesión nuevamente.');
+  }), []);
 
   const applyTokens = useCallback(async (tokens: AuthTokens) => {
     const nextSession = sessionFromTokens(tokens);
@@ -212,19 +221,13 @@ export function AuthProvider({
     const currentSession = session;
 
     setError(null);
+    await clearSession().catch(() => undefined);
+    setSession(null);
+    setUser(null);
+    setMe(null);
 
-    try {
-      if (currentSession?.accessToken) {
-        await authApi.logout(currentSession.accessToken);
-      }
-    } catch {
-      // Aunque el servidor falle, eliminamos la sesión local.
-    } finally {
-      await clearSession();
-
-      setSession(null);
-      setUser(null);
-      setMe(null);
+    if (currentSession?.accessToken) {
+      void authApi.logout(currentSession.accessToken).catch(() => undefined);
     }
   }, [session]);
 

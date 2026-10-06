@@ -5,6 +5,7 @@ import {
   clearSession,
   loadSession,
   saveSession,
+  SESSION_EXPIRED_EVENT,
   type AuthTenant,
   type AuthUser,
   type RegisterInput,
@@ -45,6 +46,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tenant, setTenant] = useState<AuthTenant | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setUser(null);
+      setTenant(null);
+      setPermissions([]);
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
 
   // Restore session on boot: stored access token -> GET /me.
   useEffect(() => {

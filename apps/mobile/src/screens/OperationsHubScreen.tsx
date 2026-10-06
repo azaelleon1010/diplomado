@@ -8,25 +8,14 @@ import { TopBar } from '../components/TopBar';
 import { ListItem } from '../components/ListItem';
 import { Card } from '../components/Card';
 import { unreadAlertsCount } from '../data/alerts';
-import { type IconName } from '../components/Icon';
-import type { OperationsStackParamList } from '../navigation/types';
-
-const MODULES: ReadonlyArray<{
-  route: keyof OperationsStackParamList;
-  title: string;
-  detail: string;
-  icon: IconName;
-}> = [
-  { route: 'Production', title: 'Producción', detail: 'Órdenes, avance y máquinas', icon: 'production' },
-  { route: 'Inventory', title: 'Inventario', detail: 'Materiales, stock y almacenes', icon: 'inventory' },
-  { route: 'Maintenance', title: 'Mantenimiento', detail: 'Incidencias y equipos', icon: 'maintenance' },
-  { route: 'Purchasing', title: 'Compras', detail: 'Órdenes y proveedores', icon: 'purchasing' },
-];
+import { getVisibleModulesForSection } from '../navigation/moduleAccess';
+import { EmptyState } from '../components/States';
 
 export function OperationsHubScreen(): React.JSX.Element {
   const { palette } = useTheme();
-  const { userName } = useAuth();
+  const { userName, me } = useAuth();
   const navigation = useAppNavigation();
+  const modules = getVisibleModulesForSection(me?.permissions ?? [], 'Operaciones');
 
   return (
     <View style={[styles.flex, { backgroundColor: palette.background }]}>
@@ -39,9 +28,9 @@ export function OperationsHubScreen(): React.JSX.Element {
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.listCard}>
-          {MODULES.map((m) => (
+          {modules.map((m) => (
             <ListItem
-              key={m.route}
+              key={m.key}
               title={m.title}
               subtitle={m.detail}
               icon={m.icon}
@@ -49,6 +38,9 @@ export function OperationsHubScreen(): React.JSX.Element {
               onPress={() => navigation.navigate('Operations', { screen: m.route } as never)}
             />
           ))}
+          {modules.length === 0 ? (
+            <EmptyState title="Sin módulos disponibles" detail="Tu sesión no tiene permisos para ver módulos operativos." />
+          ) : null}
         </Card>
       </ScrollView>
     </View>

@@ -11,7 +11,7 @@ interface SidebarGroupProps {
 }
 
 export function SidebarGroup({ title, expanded, onToggle, collapsed, children }: SidebarGroupProps) {
-  const t = useTheme();
+  const { semanticColors: color } = useTheme();
 
   if (collapsed) {
     return <>{children}</>;
@@ -26,8 +26,8 @@ export function SidebarGroup({ title, expanded, onToggle, collapsed, children }:
         accessibilityLabel={`${title} menu`}
         accessibilityRole="button"
       >
-        <Text style={styles.groupTitle}>{title}</Text>
-        <Text style={styles.groupArrow}>{expanded ? '▾' : '▸'}</Text>
+        <Text style={[styles.groupTitle, { color: color.textMuted }]}>{title}</Text>
+        <Text style={[styles.groupArrow, { color: color.textMuted }]}>{expanded ? '▾' : '▸'}</Text>
       </TouchableOpacity>
       {expanded && <View style={styles.groupContent}>{children}</View>}
     </View>
@@ -43,14 +43,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   groupTitle: {
-    color: '#64748B',
     fontSize: 10,
     fontWeight: '600',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   groupArrow: {
-    color: '#64748B',
     fontSize: 10,
   },
   groupContent: {

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { notifySessionExpired } from '../auth/sessionEvents';
 
 const API_BASE = 'http://10.0.2.2:3000';
 
@@ -144,8 +145,8 @@ async function doRequest<T>(
  * Authenticated request with centralized access-token renewal.
  *
  * request → 401 → refresh once → retry original a single time.
- * Refresh failures clear the local session and surface SESSION_EXPIRED,
- * so screens can ask the user to sign in again. Never loops: auth
+ * Refresh failures clear the local session and notify the auth context,
+ * returning the navigation tree to Login. Never loops: auth
  * endpoints and already-retried requests throw immediately.
  */
 export async function apiRequest<T>(
@@ -174,6 +175,7 @@ export async function apiRequest<T>(
 
     if (!stored?.refreshToken) {
       await clearSession().catch(() => undefined);
+      notifySessionExpired();
       throw sessionExpiredError();
     }
 
@@ -183,6 +185,7 @@ export async function apiRequest<T>(
       rotated = await refreshSession(stored.refreshToken);
     } catch {
       await clearSession().catch(() => undefined);
+      notifySessionExpired();
       throw sessionExpiredError();
     }
 
@@ -193,11 +196,20 @@ export async function apiRequest<T>(
       sessionId: rotated.sessionId,
     }).catch(() => undefined);
 
-    return doRequest<T>(path, {
-      ...options,
-      token: rotated.accessToken,
-      _retried: true,
-    });
+    try {
+      return await doRequest<T>(path, {
+        ...options,
+        token: rotated.accessToken,
+        _retried: true,
+      });
+    } catch (retryError) {
+      if (retryError instanceof ApiClientError && retryError.status === 401) {
+        await clearSession().catch(() => undefined);
+        notifySessionExpired();
+        throw sessionExpiredError();
+      }
+      throw retryError;
+    }
   }
 }
 

@@ -20,34 +20,51 @@ import { TimeOffFormScreen } from '../screens/TimeOffFormScreen';
 import { TimeOffDetailScreen } from '../screens/TimeOffDetailScreen';
 import { FinanceScreen } from '../screens/FinanceScreen';
 import { FinanceMovementFormScreen } from '../screens/FinanceMovementFormScreen';
+import { MODULE_ACCESS } from './moduleAccess';
+import { withModulePermission } from './withModulePermission';
 
 const Stack = createNativeStackNavigator<OperationsStackParamList>();
+const InventoryScreenAccess = withModulePermission(InventoryScreen, MODULE_ACCESS.inventoryRead);
+const ProductFormScreenAccess = withModulePermission(ProductFormScreen, MODULE_ACCESS.inventoryWrite);
+const MaintenanceScreenAccess = withModulePermission(MaintenanceScreen, MODULE_ACCESS.maintenanceRead);
+const AssetFormScreenAccess = withModulePermission(AssetFormScreen, MODULE_ACCESS.maintenanceWrite);
+const MaintenanceOrderFormScreenAccess = withModulePermission(MaintenanceOrderFormScreen, MODULE_ACCESS.maintenanceWrite);
+const MaintenanceOrderDetailScreenAccess = withModulePermission(MaintenanceOrderDetailScreen, MODULE_ACCESS.maintenanceRead);
+const ProductionScreenAccess = withModulePermission(ProductionScreen, MODULE_ACCESS.productionRead);
+const ProductionOrderFormScreenAccess = withModulePermission(ProductionOrderFormScreen, MODULE_ACCESS.productionWrite);
+const PurchasingScreenAccess = withModulePermission(PurchasingScreen, MODULE_ACCESS.purchasingRead);
+const SupplierFormScreenAccess = withModulePermission(SupplierFormScreen, MODULE_ACCESS.purchasingWrite);
+const PurchaseOrderFormScreenAccess = withModulePermission(PurchaseOrderFormScreen, MODULE_ACCESS.purchasingWrite);
+const PurchaseOrderDetailScreenAccess = withModulePermission(PurchaseOrderDetailScreen, MODULE_ACCESS.purchasingRead);
+const HRScreenAccess = withModulePermission(HRScreen, MODULE_ACCESS.hrRead);
+const EmployeeFormScreenAccess = withModulePermission(EmployeeFormScreen, MODULE_ACCESS.hrWrite);
+const TimeOffFormScreenAccess = withModulePermission(TimeOffFormScreen, MODULE_ACCESS.hrWrite);
+const TimeOffDetailScreenAccess = withModulePermission(TimeOffDetailScreen, MODULE_ACCESS.hrTimeOffRead);
+const FinanceScreenAccess = withModulePermission(FinanceScreen, MODULE_ACCESS.financeRead);
+const FinanceMovementFormScreenAccess = withModulePermission(FinanceMovementFormScreen, MODULE_ACCESS.financeWrite);
 
 export function OperationsStack(): React.JSX.Element {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="OperationsHub" component={OperationsHubScreen} />
-      <Stack.Screen name="Inventory" component={InventoryScreen} />
-      <Stack.Screen
-        name="ProductForm"
-        component={ProductFormScreen}
-      />
-      <Stack.Screen name="Maintenance" component={MaintenanceScreen} />
-  <Stack.Screen name="AssetForm" component={AssetFormScreen} />
-  <Stack.Screen name="MaintenanceOrderForm" component={MaintenanceOrderFormScreen} />
-  <Stack.Screen name="MaintenanceOrderDetail" component={MaintenanceOrderDetailScreen} />
-      <Stack.Screen name="Production" component={ProductionScreen} />
-  <Stack.Screen name="ProductionOrderForm" component={ProductionOrderFormScreen} />
-      <Stack.Screen name="Purchasing" component={PurchasingScreen} />
-  <Stack.Screen name="SupplierForm" component={SupplierFormScreen} />
-  <Stack.Screen name="PurchaseOrderForm" component={PurchaseOrderFormScreen} />
-  <Stack.Screen name="PurchaseOrderDetail" component={PurchaseOrderDetailScreen} />
-      <Stack.Screen name="HR" component={HRScreen} />
-      <Stack.Screen name="EmployeeForm" component={EmployeeFormScreen} />
-      <Stack.Screen name="TimeOffForm" component={TimeOffFormScreen} />
-      <Stack.Screen name="TimeOffDetail" component={TimeOffDetailScreen} />
-      <Stack.Screen name="Finance" component={FinanceScreen} />
-  <Stack.Screen name="FinanceMovementForm" component={FinanceMovementFormScreen} />
+      <Stack.Screen name="Inventory" component={InventoryScreenAccess} />
+      <Stack.Screen name="ProductForm" component={ProductFormScreenAccess} />
+      <Stack.Screen name="Maintenance" component={MaintenanceScreenAccess} />
+      <Stack.Screen name="AssetForm" component={AssetFormScreenAccess} />
+      <Stack.Screen name="MaintenanceOrderForm" component={MaintenanceOrderFormScreenAccess} />
+      <Stack.Screen name="MaintenanceOrderDetail" component={MaintenanceOrderDetailScreenAccess} />
+      <Stack.Screen name="Production" component={ProductionScreenAccess} />
+      <Stack.Screen name="ProductionOrderForm" component={ProductionOrderFormScreenAccess} />
+      <Stack.Screen name="Purchasing" component={PurchasingScreenAccess} />
+      <Stack.Screen name="SupplierForm" component={SupplierFormScreenAccess} />
+      <Stack.Screen name="PurchaseOrderForm" component={PurchaseOrderFormScreenAccess} />
+      <Stack.Screen name="PurchaseOrderDetail" component={PurchaseOrderDetailScreenAccess} />
+      <Stack.Screen name="HR" component={HRScreenAccess} />
+      <Stack.Screen name="EmployeeForm" component={EmployeeFormScreenAccess} />
+      <Stack.Screen name="TimeOffForm" component={TimeOffFormScreenAccess} />
+      <Stack.Screen name="TimeOffDetail" component={TimeOffDetailScreenAccess} />
+      <Stack.Screen name="Finance" component={FinanceScreenAccess} />
+      <Stack.Screen name="FinanceMovementForm" component={FinanceMovementFormScreenAccess} />
     </Stack.Navigator>
   );
 }

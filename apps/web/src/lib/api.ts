@@ -4,6 +4,7 @@
  */
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined ?? 'http://localhost:3000').replace(/\/$/, '');
+export const SESSION_EXPIRED_EVENT = 'tramatech:session-expired';
 
 export interface ApiErrorBody {
   success: false;
@@ -58,11 +59,20 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       error: { code: 'NETWORK_ERROR', message: `Request failed with status ${res.status}`, fields: {} },
       traceId: '',
     };
-    throw new ApiClientError(res.status, body.success === false ? body : {
+    const error = new ApiClientError(res.status, body.success === false ? body : {
       success: false,
       error: { code: 'NETWORK_ERROR', message: body && typeof body === 'object' ? 'Unexpected response' : `Request failed with status ${res.status}`, fields: {} },
       traceId: '',
     });
+    if (res.status === 401 && !path.startsWith('/api/v1/auth/') && path !== '/api/v1/me') {
+      try {
+        clearSession();
+      } catch {
+        // Storage failures do not hide the original unauthorized response.
+      }
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
+    throw error;
   }
 
   return (parsed as { data: T }).data;
