@@ -33,6 +33,7 @@ export const PERMISSIONS = {
   PURCHASING_WRITE: 'purchasing.write',
   HR_READ_SELF: 'hr.read.self',
   HR_READ_TEAM: 'hr.read.team',
+  HR_WRITE_SELF: 'hr.write.self',
   HR_WRITE: 'hr.write',
   FINANCE_READ: 'finance.read',
   FINANCE_CREATE: 'finance.create',

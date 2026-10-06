@@ -37,6 +37,7 @@ export interface EmployeeFilters {
 
 export interface IEmployeeStore {
   findById(tenantId: string, id: string, session?: TxSession): Promise<Employee | null>;
+  findByUserId(tenantId: string, userId: string, session?: TxSession): Promise<Employee | null>;
   findByCode(tenantId: string, code: string, session?: TxSession): Promise<Employee | null>;
   list(tenantId: string, filters: EmployeeFilters, page: number, limit: number, sortBy?: string, sortOrder?: 'asc' | 'desc'): Promise<{
     data: Employee[];
@@ -45,8 +46,13 @@ export interface IEmployeeStore {
     limit: number;
     totalPages: number;
   }>;
-  create(data: { tenantId: string; code: string; firstName: string; lastName: string; email?: string; phone?: string; departmentId?: string; position?: string; location?: string; hireDate?: string; createdBy: string }, session?: TxSession): Promise<Employee>;
-  update(tenantId: string, id: string, patch: { firstName?: string; lastName?: string; email?: string | null; phone?: string | null; departmentId?: string | null; position?: string | null; location?: string | null; hireDate?: string | null; status?: EmployeeStatus }, expectedVersion: number, updatedBy: string, session?: TxSession): Promise<Employee | null>;
+  create(data: { tenantId: string; code: string; firstName: string; lastName: string; userId?: string; email?: string; phone?: string; departmentId?: string; position?: string; location?: string; hireDate?: string; createdBy: string }, session?: TxSession): Promise<Employee>;
+  update(tenantId: string, id: string, patch: { firstName?: string; lastName?: string; userId?: string | null; email?: string | null; phone?: string | null; departmentId?: string | null; position?: string | null; location?: string | null; hireDate?: string | null; status?: EmployeeStatus }, expectedVersion: number, updatedBy: string, session?: TxSession): Promise<Employee | null>;
+}
+
+/** Minimal Identity lookup; an employee link is never inferred from an email address. */
+export interface IEmployeeUserDirectory {
+  isActiveInTenant(tenantId: string, userId: string): Promise<boolean>;
 }
 
 export interface TimeOffFilters {

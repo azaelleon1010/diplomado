@@ -8,10 +8,11 @@ import { Router } from 'express';
 import type { HrDeps } from '../application/usecases';
 import { PERMISSIONS } from '../../identity/domain/permissions';
 import { MongoAuditSink } from '../../identity/infrastructure/repositories';
-import { MongoDepartmentStore, MongoEmployeeStore, MongoTimeOffStore } from '../infrastructure/repositories';
+import { MongoDepartmentStore, MongoEmployeeStore, MongoEmployeeUserDirectory, MongoTimeOffStore } from '../infrastructure/repositories';
 import { createHrController } from './controllers';
 import {
   authenticate,
+  requireAnyPermission,
   requirePermission,
   requireTenant,
   type AuthMiddlewareDeps,
@@ -21,6 +22,7 @@ export function buildHrDeps(): HrDeps {
   return {
     departments: new MongoDepartmentStore(),
     employees: new MongoEmployeeStore(),
+    users: new MongoEmployeeUserDirectory(),
     timeOffs: new MongoTimeOffStore(),
     audit: new MongoAuditSink(),
   };
@@ -31,9 +33,10 @@ export function createHrRouter(deps: HrDeps, auth: AuthMiddlewareDeps) {
   const router = Router();
   const controller = createHrController(deps);
   const guard = [authenticate(auth), requireTenant()];
-  const readSelf = requirePermission(auth, PERMISSIONS.HR_READ_SELF);
   const readTeam = requirePermission(auth, PERMISSIONS.HR_READ_TEAM);
   const write = requirePermission(auth, PERMISSIONS.HR_WRITE);
+  const timeOffRead = requireAnyPermission(auth, [PERMISSIONS.HR_READ_SELF, PERMISSIONS.HR_READ_TEAM]);
+  const timeOffWrite = requireAnyPermission(auth, [PERMISSIONS.HR_WRITE_SELF, PERMISSIONS.HR_WRITE]);
 
   router.get('/departments', ...guard, readTeam, controller.listDepartments);
   router.post('/departments', ...guard, write, controller.createDepartment);
@@ -47,11 +50,11 @@ export function createHrRouter(deps: HrDeps, auth: AuthMiddlewareDeps) {
   router.patch('/employees/:id', ...guard, write, controller.updateEmployee);
   router.delete('/employees/:id', ...guard, write, controller.deleteEmployee);
 
-  router.get('/time-off', ...guard, readSelf, controller.listTimeOff);
-  router.post('/time-off', ...guard, readSelf, controller.createTimeOff);
-  router.get('/time-off/:id', ...guard, readSelf, controller.getTimeOff);
+  router.get('/time-off', ...guard, timeOffRead, controller.listTimeOff);
+  router.post('/time-off', ...guard, timeOffWrite, controller.createTimeOff);
+  router.get('/time-off/:id', ...guard, timeOffRead, controller.getTimeOff);
   router.post('/time-off/:id/decision', ...guard, write, controller.decideTimeOff);
-  router.post('/time-off/:id/cancel', ...guard, readSelf, controller.cancelTimeOff);
+  router.post('/time-off/:id/cancel', ...guard, timeOffWrite, controller.cancelTimeOff);
 
   return router;
 }

@@ -35,6 +35,7 @@ export const createEmployeeSchema = z
     code: z.string().trim().min(1).max(32),
     firstName: z.string().trim().min(1).max(100),
     lastName: z.string().trim().min(1).max(100),
+    userId: z.string().trim().min(1).max(120).optional(),
     email: emailRule.optional(),
     phone: z.string().trim().max(40).optional(),
     departmentId: z.string().trim().min(1).max(120).optional(),
@@ -48,6 +49,7 @@ export const updateEmployeeSchema = z
   .object({
     firstName: z.string().trim().min(1).max(100).optional(),
     lastName: z.string().trim().min(1).max(100).optional(),
+    userId: z.string().trim().min(1).max(120).nullable().optional(),
     email: emailRule.nullable().optional(),
     phone: z.string().trim().max(40).nullable().optional(),
     departmentId: z.string().trim().min(1).max(120).nullable().optional(),
@@ -61,7 +63,7 @@ export const updateEmployeeSchema = z
 
 export const createTimeOffSchema = z
   .object({
-    employeeId: z.string().trim().min(1).max(120),
+    employeeId: z.string().trim().min(1).max(120).optional(),
     type: timeOffTypeRule,
     startDate: dateRule,
     endDate: dateRule,

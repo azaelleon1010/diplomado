@@ -42,6 +42,7 @@ function makeStores() {
 
   const userStore: IUserStore = {
     findById: async (tenantId, uid) => users.find((u) => u.tenantId === tenantId && u._id === uid) ?? null,
+    findStatusById: async (tenantId, uid) => users.find((u) => u.tenantId === tenantId && u._id === uid)?.status ?? null,
     findByEmail: async (tenantId, email) => users.find((u) => u.tenantId === tenantId && u.email === email.toLowerCase()) ?? null,
     findByEmailAnyTenant: async (email) => users.filter((u) => u.email === email.toLowerCase()),
     create: async (data) => {

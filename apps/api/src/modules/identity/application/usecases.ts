@@ -22,6 +22,7 @@ import type {
 } from '../domain/ports';
 
 export interface IdentityDeps {
+  tenants: ITenantStore;
   users: IUserStore;
   roles: IRoleStore;
   memberships: IMembershipStore;
@@ -33,7 +34,6 @@ export interface IdentityDeps {
 
 /** Extended deps for registration (needs the tenant store). */
 export interface RegisterDeps extends IdentityDeps {
-  tenants: ITenantStore;
   emailProvider: IEmailProvider;
   /** Defaults to withTransaction; injectable for unit tests. */
   tx?: TxRunner;
@@ -113,6 +113,9 @@ export async function login(input: LoginInput, deps: IdentityDeps) {
   const ok = await deps.hasher.verify(input.password, candidate.passwordHash);
   if (!ok) return fail();
 
+  const tenant = await deps.tenants.findById(candidate.tenantId);
+  if (!tenant || tenant.status !== 'ACTIVE') return fail();
+
   const sessionId = randomUUID();
   const issued = deps.tokens.issueRefresh({ userId: candidate._id, tenantId: candidate.tenantId, sessionId });
   await deps.sessions.create({
@@ -171,6 +174,15 @@ export async function refresh(input: RefreshInput, deps: IdentityDeps) {
     session.userId === claims.sub &&
     session.tenantId === claims.tenantId;
   if (!usable) {
+    await audit(deps, { tenantId: claims.tenantId, userId: claims.sub, action: AUTH_ACTIONS.REFRESH, entityType: 'refreshSession', entityId: claims.sessionId, result: 'FAILURE', correlationId: input.correlationId });
+    throw unauthorized('Invalid or expired refresh token');
+  }
+
+  const [userStatus, tenant] = await Promise.all([
+    deps.users.findStatusById(claims.tenantId, claims.sub),
+    deps.tenants.findById(claims.tenantId),
+  ]);
+  if (userStatus !== 'ACTIVE' || !tenant || tenant.status !== 'ACTIVE') {
     await audit(deps, { tenantId: claims.tenantId, userId: claims.sub, action: AUTH_ACTIONS.REFRESH, entityType: 'refreshSession', entityId: claims.sessionId, result: 'FAILURE', correlationId: input.correlationId });
     throw unauthorized('Invalid or expired refresh token');
   }

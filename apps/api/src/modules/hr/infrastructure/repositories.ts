@@ -6,10 +6,13 @@
  */
 import { BaseRepository, mapMongoError, type TenantContext } from '@erp/database';
 import type { ClientSession } from 'mongoose';
+import mongoose from 'mongoose';
+import { UserModel } from '../../identity/infrastructure/models';
 import type { TxSession } from '../../tenant/domain/ports';
 import type {
   IDepartmentStore,
   IEmployeeStore,
+  IEmployeeUserDirectory,
   ITimeOffStore,
   TimeOffFilters,
 } from '../domain/ports';
@@ -63,6 +66,7 @@ function toEmployee(doc: EmployeeDoc): Employee {
     code: doc.code,
     firstName: doc.firstName,
     lastName: doc.lastName,
+    userId: doc.userId,
     email: doc.email,
     phone: doc.phone,
     departmentId: doc.departmentId,
@@ -173,6 +177,17 @@ export class MongoEmployeeStore implements IEmployeeStore {
     return doc ? toEmployee(doc) : null;
   }
 
+  async findByUserId(tenantId: string, userId: string): Promise<Employee | null> {
+    try {
+      // Self-service authorization must fail closed even if the unique index
+      // has not yet been deployed or legacy data violates the association rule.
+      const docs = await EmployeeModel.find({ tenantId, userId }).limit(2).exec();
+      return docs.length === 1 ? toEmployee(docs[0]) : null;
+    } catch (err) {
+      throw mapMongoError(err);
+    }
+  }
+
   async findByCode(tenantId: string, code: string, session?: TxSession): Promise<Employee | null> {
     try {
       const q = EmployeeModel.findOne({ tenantId, code: code.trim().toUpperCase() });
@@ -203,12 +218,13 @@ export class MongoEmployeeStore implements IEmployeeStore {
     };
   }
 
-  async create(data: { tenantId: string; code: string; firstName: string; lastName: string; email?: string; phone?: string; departmentId?: string; position?: string; location?: string; hireDate?: string; createdBy: string }, session?: TxSession): Promise<Employee> {
+  async create(data: { tenantId: string; code: string; firstName: string; lastName: string; userId?: string; email?: string; phone?: string; departmentId?: string; position?: string; location?: string; hireDate?: string; createdBy: string }, session?: TxSession): Promise<Employee> {
     const created = await this.base.create(
       clean({
         code: data.code.trim().toUpperCase(),
         firstName: data.firstName,
         lastName: data.lastName,
+        userId: data.userId,
         email: data.email,
         phone: data.phone,
         departmentId: data.departmentId,
@@ -223,7 +239,7 @@ export class MongoEmployeeStore implements IEmployeeStore {
     return toEmployee(created);
   }
 
-  async update(tenantId: string, id: string, patch: { firstName?: string; lastName?: string; email?: string | null; phone?: string | null; departmentId?: string | null; position?: string | null; location?: string | null; hireDate?: string | null; status?: EmployeeStatus }, expectedVersion: number, updatedBy: string, session?: TxSession): Promise<Employee | null> {
+  async update(tenantId: string, id: string, patch: { firstName?: string; lastName?: string; userId?: string | null; email?: string | null; phone?: string | null; departmentId?: string | null; position?: string | null; location?: string | null; hireDate?: string | null; status?: EmployeeStatus }, expectedVersion: number, updatedBy: string, session?: TxSession): Promise<Employee | null> {
     const current = await this.base.findById(id, sysCtx(tenantId), asSession(session));
     if (!current) return null;
     const set: Record<string, unknown> = { updatedBy, updatedAt: new Date() };
@@ -235,6 +251,7 @@ export class MongoEmployeeStore implements IEmployeeStore {
     };
     put('firstName', typeof patch.firstName === 'string' ? patch.firstName.trim() : undefined);
     put('lastName', typeof patch.lastName === 'string' ? patch.lastName.trim() : undefined);
+    put('userId', patch.userId === undefined ? undefined : (patch.userId?.trim() || null));
     put('email', patch.email === undefined ? undefined : (patch.email?.trim() || null));
     put('phone', patch.phone === undefined ? undefined : (patch.phone?.trim() || null));
     put('departmentId', patch.departmentId);
@@ -259,6 +276,18 @@ export class MongoEmployeeStore implements IEmployeeStore {
         return null;
       }
       return toEmployee(updated);
+    } catch (err) {
+      throw mapMongoError(err);
+    }
+  }
+}
+
+/** Read-only Identity adapter for explicit employee/user linking. */
+export class MongoEmployeeUserDirectory implements IEmployeeUserDirectory {
+  async isActiveInTenant(tenantId: string, userId: string): Promise<boolean> {
+    if (!mongoose.Types.ObjectId.isValid(userId)) return false;
+    try {
+      return Boolean(await UserModel.exists({ _id: userId, tenantId, status: 'ACTIVE' }).exec());
     } catch (err) {
       throw mapMongoError(err);
     }

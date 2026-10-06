@@ -6,12 +6,15 @@ import type { NextFunction, Request, Response } from 'express';
 import { forbidden, unauthorized } from '@erp/errors';
 import { hasPermission } from '../domain/permissions';
 import type { IMembershipStore, IRoleStore, ISessionStore, ITokenIssuer } from '../domain/ports';
+import type { ITenantStore } from '../../tenant/domain/ports';
+import type { IUserStore } from '../domain/ports';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       sessionId?: string;
+      grantedPermissions?: string[];
     }
   }
 }
@@ -21,6 +24,8 @@ export interface AuthMiddlewareDeps {
   sessions: ISessionStore;
   memberships: IMembershipStore;
   roles: IRoleStore;
+  users: Pick<IUserStore, 'findStatusById'>;
+  tenants: Pick<ITenantStore, 'findById'>;
 }
 
 function bearerToken(req: Request): string | null {
@@ -60,6 +65,19 @@ export function authenticate(deps: AuthMiddlewareDeps) {
       next(unauthorized('Session is no longer valid'));
       return;
     }
+
+    const [userStatus, tenant] = await Promise.all([
+      deps.users.findStatusById(claims.tenantId, claims.sub),
+      deps.tenants.findById(claims.tenantId),
+    ]);
+    if (userStatus !== 'ACTIVE') {
+      next(unauthorized('User is no longer active'));
+      return;
+    }
+    if (!tenant || tenant.status !== 'ACTIVE') {
+      next(forbidden('Tenant is not active'));
+      return;
+    }
     req.userId = claims.sub;
     req.tenantId = claims.tenantId;
     req.sessionId = claims.sessionId;
@@ -85,25 +103,50 @@ export function requireTenant() {
  * Server-side permission check within the request tenant.
  * Permissions are resolved from roles — never from client claims.
  */
+async function resolveGrantedPermissions(req: Request, deps: AuthMiddlewareDeps): Promise<string[] | null> {
+  const userId = req.userId;
+  const tenantId = req.tenantId;
+  if (!userId || !tenantId) return null;
+
+  const membership = await deps.memberships.findByUserAndTenant(userId, tenantId);
+  if (!membership || membership.status !== 'ACTIVE') {
+    req.grantedPermissions = [];
+    return req.grantedPermissions;
+  }
+  const roles = await deps.roles.findByIds(tenantId, membership.roleIds);
+  const granted: string[] = [];
+  for (const role of roles) {
+    if (role.status === 'ACTIVE' && role.tenantId === tenantId) granted.push(...role.permissions);
+  }
+  req.grantedPermissions = [...new Set(granted)];
+  return req.grantedPermissions;
+}
+
+/** Server-side permission check within the request tenant. */
 export function requirePermission(deps: AuthMiddlewareDeps, permission: string) {
   return async function requirePermission(req: Request, _res: Response, next: NextFunction): Promise<void> {
-    const userId = req.userId;
-    const tenantId = req.tenantId;
-    if (!userId || !tenantId) {
+    const granted = await resolveGrantedPermissions(req, deps);
+    if (granted === null) {
       next(unauthorized('Authentication required'));
       return;
     }
-    const membership = await deps.memberships.findByUserAndTenant(userId, tenantId);
-    if (!membership || membership.status !== 'ACTIVE') {
-      next(forbidden('Membership is not active'));
+    if (!hasPermission(granted, permission)) {
+      next(forbidden('Insufficient permissions'));
       return;
     }
-    const roles = await deps.roles.findByIds(tenantId, membership.roleIds);
-    const granted: string[] = [];
-    for (const role of roles) {
-      if (role.status === 'ACTIVE' && role.tenantId === tenantId) granted.push(...role.permissions);
+    next();
+  };
+}
+
+/** Allows a route guarded by any one of several server-resolved permissions. */
+export function requireAnyPermission(deps: AuthMiddlewareDeps, permissions: readonly string[]) {
+  return async function requireAnyPermission(req: Request, _res: Response, next: NextFunction): Promise<void> {
+    const granted = await resolveGrantedPermissions(req, deps);
+    if (granted === null) {
+      next(unauthorized('Authentication required'));
+      return;
     }
-    if (!hasPermission(granted, permission)) {
+    if (!permissions.some((permission) => hasPermission(granted, permission))) {
       next(forbidden('Insufficient permissions'));
       return;
     }

@@ -7,13 +7,14 @@ import { ensureIndexes } from '../../packages/database/src/indexes';
 import { createApp } from '../../apps/api/src/app';
 import { buildIdentityDeps } from '../../apps/api/src/modules/identity/presentation/routes';
 import { identityModels } from '../../apps/api/src/modules/identity/infrastructure/models';
-import type { IdentityDeps } from '../../apps/api/src/modules/identity/application/usecases';
+import { TenantModel, tenantModels } from '../../apps/api/src/modules/tenant/infrastructure/models';
+import type { RegisterDeps } from '../../apps/api/src/modules/identity/application/usecases';
 import type { IEmailProvider } from '../../apps/api/src/modules/notifications/domain/ports';
 import type { Express } from 'express';
 
 let mongod: MongoMemoryServer;
 let app: Express;
-let deps: IdentityDeps;
+let deps: RegisterDeps;
 
 const TENANT_A = 'TENANT_A';
 const TENANT_B = 'TENANT_B';
@@ -39,7 +40,9 @@ async function createUserWithRoles(tenantId: string, email: string, password: st
 let adminAccessA = '';
 let adminRefreshA = '';
 let limitedAccessA = '';
+let limitedRefreshA = '';
 let adminAccessB = '';
+let adminRefreshB = '';
 let userIdB = '';
 
 describe('Auth integration: login → refresh → /me → logout', () => {
@@ -68,7 +71,7 @@ describe('Auth integration: login → refresh → /me → logout', () => {
     __resetConfigForTests();
     await disconnectMongo().catch(() => {});
     await connectMongo();
-    await ensureIndexes(identityModels);
+    await ensureIndexes([...identityModels, ...tenantModels]);
 
     // Atlas persiste entre ejecuciones; limpiamos únicamente los tenants
     // utilizados por esta suite de integración.
@@ -85,8 +88,11 @@ describe('Auth integration: login → refresh → /me → logout', () => {
         tenantId: { $in: [TENANT_A, TENANT_B] },
       });
     }
+    await TenantModel.deleteMany({ tenantId: { $in: [TENANT_A, TENANT_B] } }).exec();
 
     deps = buildIdentityDeps(testEmailProvider);
+    await deps.tenants.create({ tenantId: TENANT_A, name: 'Tenant A', slug: 'tenant-a-auth-test', createdBy: 'test' });
+    await deps.tenants.create({ tenantId: TENANT_B, name: 'Tenant B', slug: 'tenant-b-auth-test', createdBy: 'test' });
     app = createApp(deps);
 
     const adminRoleA = await createRole(TENANT_A, 'admin', ['system.users.read', 'system.users.write']);
@@ -139,6 +145,20 @@ describe('Auth integration: login → refresh → /me → logout', () => {
     const ok = await request(app).post('/api/v1/auth/login').send({ email: 'viewer@a.mx', password: 'ViewerPass1' });
     expect(ok.status).toBe(200);
     limitedAccessA = ok.body.data.accessToken;
+    limitedRefreshA = ok.body.data.refreshToken;
+  });
+
+  it('blocks already-issued access and refresh tokens after the user is disabled', async () => {
+    const viewer = await deps.users.findByEmail(TENANT_A, 'viewer@a.mx');
+    expect(viewer).not.toBeNull();
+    await deps.users.setStatus(TENANT_A, viewer?._id ?? '', 'DISABLED', 'test');
+
+    const access = await request(app).get('/api/v1/users').set('Authorization', `Bearer ${limitedAccessA}`);
+    expect(access.status).toBe(401);
+    const refresh = await request(app).post('/api/v1/auth/refresh').send({ refreshToken: limitedRefreshA });
+    expect(refresh.status).toBe(401);
+
+    await deps.users.setStatus(TENANT_A, viewer?._id ?? '', 'ACTIVE', 'test');
   });
 
   it('protected route without token returns 401', async () => {
@@ -210,8 +230,20 @@ describe('Auth integration: login → refresh → /me → logout', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.tenantId).toBe(TENANT_B);
     adminAccessB = res.body.data.accessToken;
+    adminRefreshB = res.body.data.refreshToken;
     expect(adminAccessB).toBeTruthy();
     const meB = await request(app).get('/api/v1/me').set('Authorization', `Bearer ${adminAccessB}`);
     expect(meB.body.data.membership.tenantId).toBe(TENANT_B);
+  });
+
+  it('blocks already-issued tokens and refresh after the tenant is disabled', async () => {
+    await deps.tenants.setStatus(TENANT_B, 'DISABLED', 'test');
+
+    const access = await request(app).get('/api/v1/me').set('Authorization', `Bearer ${adminAccessB}`);
+    expect(access.status).toBe(403);
+    const refresh = await request(app).post('/api/v1/auth/refresh').send({ refreshToken: adminRefreshB });
+    expect(refresh.status).toBe(401);
+
+    await deps.tenants.setStatus(TENANT_B, 'ACTIVE', 'test');
   });
 });

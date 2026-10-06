@@ -156,4 +156,15 @@ describe('BaseRepository — tenant isolation & ops', () => {
     expect(res.total).toBe(0);
     expect(res.data).toHaveLength(0);
   });
+
+  it('authenticated tenant overrides tenantId supplied in a custom filter', async () => {
+    const repo = new TestRepo();
+    const docA = await repo.create({ code: 'SCOPE', name: 'tenant A' } as any, ctxA);
+    await repo.create({ code: 'SCOPE', name: 'tenant B' } as any, ctxB);
+
+    const result = await repo.findMany({ tenantId: ctxB.tenantId } as any, ctxA, { page: 1, limit: 10 });
+    expect(result.total).toBe(1);
+    expect(String(result.data[0]?._id)).toBe(String(docA._id));
+    expect(result.data[0]?.tenantId).toBe(ctxA.tenantId);
+  });
 });

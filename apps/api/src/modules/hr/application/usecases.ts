@@ -4,6 +4,7 @@
  */
 import { AppError } from '@erp/errors';
 import { sanitizeForAudit } from '../../identity/domain/entities';
+import { hasPermission, PERMISSIONS } from '../../identity/domain/permissions';
 import type { IAuditSink } from '../../identity/domain/ports';
 import type { AuditResult } from '../../identity/domain/entities';
 import {
@@ -16,12 +17,14 @@ import {
 import type {
   IDepartmentStore,
   IEmployeeStore,
+  IEmployeeUserDirectory,
   ITimeOffStore,
 } from '../domain/ports';
 
 export interface HrDeps {
   departments: IDepartmentStore;
   employees: IEmployeeStore;
+  users: IEmployeeUserDirectory;
   timeOffs: ITimeOffStore;
   audit: IAuditSink;
 }
@@ -29,6 +32,7 @@ export interface HrDeps {
 export interface HrActor {
   userId: string;
   tenantId: string;
+  permissions: readonly string[];
   correlationId?: string;
 }
 
@@ -56,6 +60,20 @@ function duplicate(field: string): AppError {
 
 function invalid(message: string, fields?: Record<string, unknown>): AppError {
   return new AppError({ code: 'VALIDATION_ERROR', message, statusCode: 400, fields });
+}
+
+function forbidden(message: string): AppError {
+  return new AppError({ code: 'FORBIDDEN', message, statusCode: 403 });
+}
+
+function can(ctx: HrActor, permission: string): boolean {
+  return hasPermission(ctx.permissions, permission);
+}
+
+async function selfEmployee(ctx: HrActor, deps: HrDeps) {
+  const employee = await deps.employees.findByUserId(ctx.tenantId, ctx.userId);
+  if (!employee) throw forbidden('No employee profile is linked to this account');
+  return employee;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -199,6 +217,7 @@ export interface CreateEmployeeInput {
   code: string;
   firstName: string;
   lastName: string;
+  userId?: string;
   email?: string;
   phone?: string;
   departmentId?: string;
@@ -215,11 +234,15 @@ export async function createEmployee(ctx: HrActor, input: CreateEmployeeInput, d
   if (input.email !== undefined && !EMAIL_RE.test(input.email.trim())) {
     throw invalid('Invalid employee email');
   }
+  if (input.userId && !(await deps.users.isActiveInTenant(ctx.tenantId, input.userId))) {
+    throw notFound('Active tenant user');
+  }
   const created = await deps.employees.create({
     tenantId: ctx.tenantId,
     code,
     firstName: input.firstName.trim(),
     lastName: input.lastName.trim(),
+    userId: input.userId?.trim(),
     email: input.email?.trim().toLowerCase() || undefined,
     phone: input.phone?.trim() || undefined,
     departmentId: input.departmentId,
@@ -236,7 +259,7 @@ export async function createEmployee(ctx: HrActor, input: CreateEmployeeInput, d
     entityId: created._id,
     result: 'SUCCESS',
     correlationId: ctx.correlationId,
-    after: { code: created.code, firstName: created.firstName, lastName: created.lastName },
+    after: { code: created.code, firstName: created.firstName, lastName: created.lastName, userId: created.userId },
   });
   return created;
 }
@@ -254,6 +277,7 @@ export async function listEmployees(ctx: HrActor, filters: { search?: string; de
 export interface UpdateEmployeeInput {
   firstName?: string;
   lastName?: string;
+  userId?: string | null;
   email?: string | null;
   phone?: string | null;
   departmentId?: string | null;
@@ -274,6 +298,9 @@ export async function updateEmployee(ctx: HrActor, id: string, input: UpdateEmpl
   if (fields.email !== undefined && fields.email !== null && !EMAIL_RE.test(fields.email.trim())) {
     throw invalid('Invalid employee email');
   }
+  if (fields.userId && !(await deps.users.isActiveInTenant(ctx.tenantId, fields.userId))) {
+    throw notFound('Active tenant user');
+  }
   const updated = await deps.employees.update(ctx.tenantId, id, fields, expectedVersion, ctx.userId);
   if (!updated) throw notFound('Employee');
   await audit(deps, {
@@ -284,8 +311,8 @@ export async function updateEmployee(ctx: HrActor, id: string, input: UpdateEmpl
     entityId: id,
     result: 'SUCCESS',
     correlationId: ctx.correlationId,
-    before: { firstName: before.firstName, lastName: before.lastName, status: before.status },
-    after: { firstName: updated.firstName, lastName: updated.lastName, status: updated.status },
+    before: { firstName: before.firstName, lastName: before.lastName, status: before.status, userId: before.userId },
+    after: { firstName: updated.firstName, lastName: updated.lastName, status: updated.status, userId: updated.userId },
   });
   return updated;
 }
@@ -314,7 +341,7 @@ export async function deactivateEmployee(ctx: HrActor, id: string, deps: HrDeps)
 // ---------------------------------------------------------------------------
 
 export interface CreateTimeOffInput {
-  employeeId: string;
+  employeeId?: string;
   type: TimeOffType;
   startDate: string;
   endDate: string;
@@ -322,11 +349,20 @@ export interface CreateTimeOffInput {
 }
 
 export async function createTimeOff(ctx: HrActor, input: CreateTimeOffInput, deps: HrDeps) {
-  await assertEmployeeUsable(deps, ctx.tenantId, input.employeeId);
+  let employeeId: string;
+  if (can(ctx, PERMISSIONS.HR_WRITE)) {
+    if (!input.employeeId) throw invalid('employeeId is required for HR administrators');
+    employeeId = input.employeeId;
+  } else {
+    if (!can(ctx, PERMISSIONS.HR_WRITE_SELF)) throw forbidden('Insufficient permissions');
+    const employee = await selfEmployee(ctx, deps);
+    employeeId = employee._id;
+  }
+  await assertEmployeeUsable(deps, ctx.tenantId, employeeId);
   assertDateRange(input.startDate.trim(), input.endDate.trim());
   const created = await deps.timeOffs.create({
     tenantId: ctx.tenantId,
-    employeeId: input.employeeId,
+    employeeId,
     type: input.type,
     startDate: input.startDate.trim(),
     endDate: input.endDate.trim(),
@@ -349,11 +385,20 @@ export async function createTimeOff(ctx: HrActor, input: CreateTimeOffInput, dep
 export async function getTimeOff(ctx: HrActor, id: string, deps: HrDeps) {
   const record = await deps.timeOffs.findById(ctx.tenantId, id);
   if (!record) throw notFound('Time off request');
+  if (can(ctx, PERMISSIONS.HR_READ_TEAM)) return record;
+  if (!can(ctx, PERMISSIONS.HR_READ_SELF)) throw forbidden('Insufficient permissions');
+  const employee = await selfEmployee(ctx, deps);
+  if (record.employeeId !== employee._id) throw notFound('Time off request');
   return record;
 }
 
 export async function listTimeOff(ctx: HrActor, filters: { employeeId?: string; status?: TimeOffStatus; type?: TimeOffType }, page: number, limit: number, sortBy: string, sortOrder: 'asc' | 'desc', deps: HrDeps) {
-  return deps.timeOffs.list(ctx.tenantId, filters, page, limit, sortBy, sortOrder);
+  if (can(ctx, PERMISSIONS.HR_READ_TEAM)) {
+    return deps.timeOffs.list(ctx.tenantId, filters, page, limit, sortBy, sortOrder);
+  }
+  if (!can(ctx, PERMISSIONS.HR_READ_SELF)) throw forbidden('Insufficient permissions');
+  const employee = await selfEmployee(ctx, deps);
+  return deps.timeOffs.list(ctx.tenantId, { ...filters, employeeId: employee._id }, page, limit, sortBy, sortOrder);
 }
 
 const DECISION_ACTIONS = {
@@ -386,6 +431,11 @@ export async function decideTimeOff(ctx: HrActor, id: string, to: 'APPROVED' | '
 export async function cancelTimeOff(ctx: HrActor, id: string, expectedVersion: number, deps: HrDeps) {
   const record = await deps.timeOffs.findById(ctx.tenantId, id);
   if (!record) throw notFound('Time off request');
+  if (!can(ctx, PERMISSIONS.HR_WRITE)) {
+    if (!can(ctx, PERMISSIONS.HR_WRITE_SELF)) throw forbidden('Insufficient permissions');
+    const employee = await selfEmployee(ctx, deps);
+    if (record.employeeId !== employee._id) throw notFound('Time off request');
+  }
   if (record.status !== 'PENDING') {
     throw invalid(`Time off request in status ${record.status} cannot be cancelled`);
   }

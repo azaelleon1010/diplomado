@@ -60,6 +60,8 @@ export type TxSession = unknown;
 
 export interface IUserStore {
   findById(tenantId: string, id: string, session?: TxSession): Promise<UserWithCredentials | null>;
+  /** Minimal current status lookup used to invalidate already-issued access tokens. */
+  findStatusById(tenantId: string, id: string): Promise<User['status'] | null>;
   findByEmail(tenantId: string, email: string, session?: TxSession): Promise<UserWithCredentials | null>;
   /** Identity resolution only (login): searches across tenants, never for data access. */
   findByEmailAnyTenant(email: string): Promise<UserWithCredentials[]>;

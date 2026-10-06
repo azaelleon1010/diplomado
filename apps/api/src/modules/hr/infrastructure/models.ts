@@ -36,6 +36,7 @@ export interface EmployeeDoc extends mongoose.Document {
   code: string;
   firstName: string;
   lastName: string;
+  userId?: string;
   email?: string;
   phone?: string;
   departmentId?: string;
@@ -56,6 +57,7 @@ const employeeSchema = new Schema<EmployeeDoc>(
     code: { type: String, required: true, trim: true, uppercase: true, minlength: 1, maxlength: 32 },
     firstName: { type: String, required: true, trim: true, minlength: 1, maxlength: 100 },
     lastName: { type: String, required: true, trim: true, minlength: 1, maxlength: 100 },
+    userId: { type: String, trim: true },
     email: { type: String, trim: true, lowercase: true, maxlength: 254 },
     phone: { type: String, trim: true, maxlength: 40 },
     departmentId: { type: String, trim: true },
@@ -67,6 +69,10 @@ const employeeSchema = new Schema<EmployeeDoc>(
   { ...baseOptions, collection: 'employees' },
 );
 employeeSchema.index({ tenantId: 1, code: 1 }, { unique: true, name: 'uniq_tenant_employee_code' });
+employeeSchema.index(
+  { tenantId: 1, userId: 1 },
+  { unique: true, partialFilterExpression: { userId: { $type: 'string' } }, name: 'uniq_tenant_employee_user' },
+);
 employeeSchema.index({ tenantId: 1, departmentId: 1 }, { name: 'idx_tenant_department' });
 employeeSchema.index({ tenantId: 1, lastName: 1, firstName: 1 }, { name: 'idx_tenant_employee_name' });
 addTenantIndex(employeeSchema);

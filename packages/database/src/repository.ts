@@ -25,7 +25,9 @@ export abstract class BaseRepository<T extends { _id: unknown; tenantId: string;
 
   protected tenantFilter(ctx: TenantContext, extra: FilterQuery<T> = {}): FilterQuery<T> {
     if (!ctx.tenantId) throw new Error('tenantId is required in TenantContext');
-    return { tenantId: ctx.tenantId, ...extra } as FilterQuery<T>;
+    // Keep the authenticated tenant authoritative even when a caller supplies
+    // a custom filter containing its own tenantId.
+    return { ...extra, tenantId: ctx.tenantId } as FilterQuery<T>;
   }
 
   /** tenant-scoped findOne */

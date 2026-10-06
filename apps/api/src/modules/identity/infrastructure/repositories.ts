@@ -103,6 +103,15 @@ const USER_SORT_FIELDS = ['createdAt', 'updatedAt', 'email', 'username'];
 export class MongoUserStore implements IUserStore {
   private readonly base = new UserBaseRepo(UserModel);
 
+  async findStatusById(tenantId: string, id: string): Promise<User['status'] | null> {
+    try {
+      const doc = await UserModel.findOne({ tenantId, _id: id }).select('status').lean().exec();
+      return doc?.status ?? null;
+    } catch (err) {
+      throw mapMongoError(err);
+    }
+  }
+
   async findById(tenantId: string, id: string, session?: TxSession): Promise<UserWithCredentials | null> {
     // passwordHash has select:false — explicitly include it for auth flows.
     const query = UserModel.findOne({ tenantId, _id: id }).select('+passwordHash');

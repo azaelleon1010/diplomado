@@ -7,11 +7,14 @@ import {
   deactivateDepartment,
   deactivateEmployee,
   decideTimeOff,
+  getTimeOff,
+  listTimeOff,
   updateEmployee,
   type HrDeps,
 } from '../../apps/api/src/modules/hr/application/usecases';
 import type { IDepartmentStore, IEmployeeStore, ITimeOffStore } from '../../apps/api/src/modules/hr/domain/ports';
 import type { Department, Employee, TimeOff } from '../../apps/api/src/modules/hr/domain/entities';
+import { PERMISSIONS } from '../../apps/api/src/modules/identity/domain/permissions';
 
 function makeDeps() {
   let seq = 0;
@@ -60,6 +63,8 @@ function makeDeps() {
       const e = employees.get(eid);
       return e && e.tenantId === tenantId ? e : null;
     },
+    findByUserId: async (tenantId, userId) =>
+      [...employees.values()].find((e) => e.tenantId === tenantId && e.userId === userId) ?? null,
     findByCode: async (tenantId, code) =>
       [...employees.values()].find((e) => e.tenantId === tenantId && e.code === code.toUpperCase()) ?? null,
     list: async (tenantId) => {
@@ -70,6 +75,7 @@ function makeDeps() {
       const e: Employee = {
         _id: id('emp'), tenantId: data.tenantId, code: data.code.toUpperCase(),
         firstName: data.firstName, lastName: data.lastName, email: data.email, phone: data.phone,
+        userId: data.userId,
         departmentId: data.departmentId, position: data.position, location: data.location,
         hireDate: data.hireDate, status: 'ACTIVE', createdAt: now(), updatedAt: now(), version: 1,
       };
@@ -82,7 +88,7 @@ function makeDeps() {
       if (e.version !== expectedVersion) {
         throw Object.assign(new Error('Version conflict'), { name: 'VersionError' });
       }
-      const { email, phone, departmentId, position, location, hireDate, ...rest } = patch as Record<string, unknown>;
+      const { email, phone, departmentId, position, location, hireDate, userId, ...rest } = patch as Record<string, unknown>;
       const next: Employee = {
         ...e,
         ...(rest as Partial<Employee>),
@@ -92,6 +98,7 @@ function makeDeps() {
         ...(position !== undefined ? { position: (position as string) ?? undefined } : {}),
         ...(location !== undefined ? { location: (location as string) ?? undefined } : {}),
         ...(hireDate !== undefined ? { hireDate: (hireDate as string) ?? undefined } : {}),
+        ...(userId !== undefined ? { userId: (userId as string) ?? undefined } : {}),
         version: e.version + 1,
         updatedAt: now(),
       };
@@ -105,8 +112,13 @@ function makeDeps() {
       const t = timeOffs.get(tid);
       return t && t.tenantId === tenantId ? t : null;
     },
-    list: async (tenantId) => {
-      const data = [...timeOffs.values()].filter((t) => t.tenantId === tenantId);
+    list: async (tenantId, filters) => {
+      const data = [...timeOffs.values()].filter((t) =>
+        t.tenantId === tenantId &&
+        (!filters.employeeId || t.employeeId === filters.employeeId) &&
+        (!filters.status || t.status === filters.status) &&
+        (!filters.type || t.type === filters.type),
+      );
       return { data, total: data.length, page: 1, limit: 20, totalPages: 1 };
     },
     create: async (data) => {
@@ -143,13 +155,18 @@ function makeDeps() {
   const deps: HrDeps = {
     departments: departmentStore,
     employees: employeeStore,
+    users: { isActiveInTenant: async () => true },
     timeOffs: timeOffStore,
     audit: { record: async (event) => { audits.push(event); } },
   };
   return { deps, audits, departments, employees, timeOffs };
 }
 
-const ctx = { userId: 'u-1', tenantId: 't-1' };
+const ctx = {
+  userId: 'u-1',
+  tenantId: 't-1',
+  permissions: [PERMISSIONS.HR_READ_SELF, PERMISSIONS.HR_READ_TEAM, PERMISSIONS.HR_WRITE_SELF, PERMISSIONS.HR_WRITE],
+};
 
 describe('hr use cases (fake stores)', () => {
   it('creates departments, employees and time-off with audit trail', async () => {
@@ -214,6 +231,54 @@ describe('hr use cases (fake stores)', () => {
     );
     const cancelled = await cancelTimeOff(ctx, second._id, 1, deps);
     expect(cancelled.status).toBe('CANCELLED');
+  });
+
+  it('scopes self-service time-off reads, creation and cancellation to the linked employee', async () => {
+    const { deps } = makeDeps();
+    const ownEmployee = await createEmployee(ctx, { code: 'SELF', firstName: 'Self', lastName: 'User', userId: 'u-self' }, deps);
+    const otherEmployee = await createEmployee(ctx, { code: 'OTHER', firstName: 'Other', lastName: 'User', userId: 'u-other' }, deps);
+    const otherRequest = await createTimeOff(ctx, {
+      employeeId: otherEmployee._id, type: 'VACATION', startDate: '2026-12-20', endDate: '2026-12-22',
+    }, deps);
+    const selfRequest = await createTimeOff(ctx, {
+      employeeId: ownEmployee._id, type: 'SICK', startDate: '2026-11-01', endDate: '2026-11-02',
+    }, deps);
+    const selfCtx = {
+      userId: 'u-self', tenantId: 't-1',
+      permissions: [PERMISSIONS.HR_READ_SELF, PERMISSIONS.HR_WRITE_SELF],
+    };
+
+    const filtered = await listTimeOff(selfCtx, { employeeId: otherEmployee._id }, 1, 20, 'createdAt', 'desc', deps);
+    expect(filtered.data.map((request) => request.employeeId)).toEqual([ownEmployee._id]);
+    await expect(getTimeOff(selfCtx, otherRequest._id, deps)).rejects.toMatchObject({ code: 'NOT_FOUND', statusCode: 404 });
+
+    const forged = await createTimeOff(selfCtx, {
+      employeeId: otherEmployee._id, type: 'PERMISSION', startDate: '2026-10-20', endDate: '2026-10-20',
+    }, deps);
+    expect(forged.employeeId).toBe(ownEmployee._id);
+    await expect(cancelTimeOff(selfCtx, otherRequest._id, 1, deps)).rejects.toMatchObject({ code: 'NOT_FOUND', statusCode: 404 });
+    await expect(cancelTimeOff(selfCtx, selfRequest._id, 1, deps)).resolves.toMatchObject({ status: 'CANCELLED' });
+
+    const unlinkedCtx = {
+      userId: 'u-unlinked', tenantId: 't-1',
+      permissions: [PERMISSIONS.HR_READ_SELF, PERMISSIONS.HR_WRITE_SELF],
+    };
+    await expect(listTimeOff(unlinkedCtx, {}, 1, 20, 'createdAt', 'desc', deps)).rejects.toMatchObject({
+      code: 'FORBIDDEN', statusCode: 403,
+    });
+    await expect(createTimeOff(unlinkedCtx, {
+      employeeId: ownEmployee._id, type: 'SICK', startDate: '2026-10-22', endDate: '2026-10-22',
+    }, deps)).rejects.toMatchObject({ code: 'FORBIDDEN', statusCode: 403 });
+
+    const readOnlyCtx = { ...selfCtx, permissions: [PERMISSIONS.HR_READ_SELF] };
+    await expect(createTimeOff(readOnlyCtx, {
+      employeeId: otherEmployee._id, type: 'SICK', startDate: '2026-10-22', endDate: '2026-10-22',
+    }, deps)).rejects.toMatchObject({ code: 'FORBIDDEN', statusCode: 403 });
+    await expect(cancelTimeOff(readOnlyCtx, forged._id, forged.version, deps)).rejects.toMatchObject({ code: 'FORBIDDEN', statusCode: 403 });
+
+    const adminRead = await listTimeOff(ctx, {}, 1, 20, 'createdAt', 'desc', deps);
+    expect(adminRead.data.length).toBe(3);
+    await expect(getTimeOff(ctx, otherRequest._id, deps)).resolves.toEqual(otherRequest);
   });
 
   it('blocks department deactivation with active employees and isolates tenants', async () => {

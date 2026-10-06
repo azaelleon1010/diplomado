@@ -3,7 +3,7 @@
  * Routers are built from explicit dependencies (no service locator).
  */
 import { Router } from 'express';
-import type { IdentityDeps, RegisterDeps } from '../application/usecases';
+import type { RegisterDeps } from '../application/usecases';
 import type { ITenantStore } from '../../tenant/domain/ports';
 import { PERMISSIONS } from '../domain/permissions';
 import { BcryptHasher } from '../infrastructure/hasher';
@@ -34,8 +34,15 @@ export function buildIdentityDeps(emailProvider = new ResendEmailProvider()): Re
   };
 }
 
-export function buildAuthMiddleware(deps: IdentityDeps): AuthMiddlewareDeps {
-  return { tokens: deps.tokens, sessions: deps.sessions, memberships: deps.memberships, roles: deps.roles };
+export function buildAuthMiddleware(deps: RegisterDeps): AuthMiddlewareDeps {
+  return {
+    tokens: deps.tokens,
+    sessions: deps.sessions,
+    memberships: deps.memberships,
+    roles: deps.roles,
+    users: deps.users,
+    tenants: deps.tenants,
+  };
 }
 
 /** POST /login, POST /refresh, POST /register (public). POST /logout (protected). */

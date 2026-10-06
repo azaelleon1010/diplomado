@@ -40,6 +40,7 @@ function actorOf(req: Request): HrActor {
     // authenticate + requireTenant guarantee these.
     userId: req.userId as string,
     tenantId: req.tenantId as string,
+    permissions: req.grantedPermissions ?? [],
     correlationId: req.traceId,
   };
 }

@@ -27,6 +27,8 @@ export interface Employee {
   code: string;
   firstName: string;
   lastName: string;
+  /** Explicit tenant-scoped Identity user link used for self-service access. */
+  userId?: string;
   email?: string;
   phone?: string;
   departmentId?: string;
