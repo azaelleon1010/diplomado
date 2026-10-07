@@ -15,8 +15,9 @@ import { JwtIssuer } from '../infrastructure/tokens';
 import { createAuthController, createUsersController } from './controllers';
 import { authenticate, requirePermission, requireTenant, type AuthMiddlewareDeps } from './middleware';
 import { ResendEmailProvider } from '../../notifications/infrastructure/resend';
+import type { IEmailProvider } from '../../notifications/domain/ports';
 
-export function buildIdentityDeps(emailProvider = new ResendEmailProvider()): RegisterDeps {
+export function buildIdentityDeps(emailProvider: IEmailProvider = new ResendEmailProvider()): RegisterDeps {
   const users = new MongoUserStore();
   const roles = new MongoRoleStore();
   const memberships = new MongoMembershipStore();
