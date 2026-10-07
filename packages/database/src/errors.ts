@@ -5,8 +5,13 @@ import { AppError } from '@erp/errors';
  * Map low-level Mongo/Mongoose errors to business AppErrors.
  * Never leak raw E11000 or stack to client.
  */
-export function mapMongoError(err: unknown): AppError {
+export function mapMongoError(err: unknown): AppError | Error {
   if (err instanceof AppError) return err;
+
+  // Write conflicts inside a transaction carry TransientTransactionError;
+  // session.withTransaction retries them only if the label survives, so
+  // they must propagate untouched (wrapping turned retries into 500s).
+  if (isTransientTransactionError(err)) return err as Error;
 
   // Duplicate key (unique index)
   if (isMongoDuplicateKey(err)) {
@@ -46,6 +51,14 @@ export function mapMongoError(err: unknown): AppError {
 
   const message = err instanceof Error ? err.message : 'Database error';
   return new AppError({ code: 'INTERNAL_ERROR', message, statusCode: 500 });
+}
+
+export function isTransientTransactionError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { hasErrorLabel?: (label: string) => boolean; errorLabels?: unknown; errorLabelSet?: unknown };
+  if (typeof e.hasErrorLabel === 'function' && e.hasErrorLabel('TransientTransactionError')) return true;
+  if (Array.isArray(e.errorLabels) && e.errorLabels.includes('TransientTransactionError')) return true;
+  return e.errorLabelSet instanceof Set && e.errorLabelSet.has('TransientTransactionError');
 }
 
 function isMongoDuplicateKey(err: unknown): boolean {
