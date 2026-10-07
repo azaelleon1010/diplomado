@@ -1,7 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notifySessionExpired } from '../auth/sessionEvents';
+import {
+  createInventoryApi,
+  type InventoryCategory,
+  type InventoryProduct,
+  type InventoryRequestClient,
+} from '../../../../packages/types/src/inventory';
 
-const API_BASE = 'http://10.0.2.2:3000';
+/**
+ * Same backend as the Web client. For a local API from the Android emulator
+ * use 'http://10.0.2.2:3000' (debug builds only; release requires HTTPS).
+ */
+export const API_BASE_URL = 'https://diplomado-slgd.onrender.com';
+const API_BASE = API_BASE_URL;
 
 export interface ApiErrorBody {
   success: false;
@@ -11,6 +22,12 @@ export interface ApiErrorBody {
     fields: Record<string, unknown>;
   };
   traceId: string;
+}
+
+export interface ApiSuccessEnvelope<T> {
+  data: T;
+  meta?: Record<string, unknown>;
+  traceId?: string;
 }
 
 export class ApiClientError extends Error {
@@ -62,7 +79,7 @@ function refreshSession(refreshToken: string): Promise<AuthTokens> {
     refreshInFlight = doRequest<AuthTokens>('/api/v1/auth/refresh', {
       method: 'POST',
       body: { refreshToken },
-    }).finally(() => {
+    }).then((response) => response.data).finally(() => {
       refreshInFlight = null;
     });
   }
@@ -73,7 +90,7 @@ function refreshSession(refreshToken: string): Promise<AuthTokens> {
 async function doRequest<T>(
   path: string,
   options: RequestOptions = {},
-): Promise<T> {
+): Promise<ApiSuccessEnvelope<T>> {
   let res: Response;
 
   try {
@@ -138,7 +155,7 @@ async function doRequest<T>(
     throw new ApiClientError(res.status, body);
   }
 
-  return (parsed as { data: T }).data;
+  return parsed as ApiSuccessEnvelope<T>;
 }
 
 /**
@@ -149,10 +166,10 @@ async function doRequest<T>(
  * returning the navigation tree to Login. Never loops: auth
  * endpoints and already-retried requests throw immediately.
  */
-export async function apiRequest<T>(
+export async function apiRequestWithMeta<T>(
   path: string,
   options: RequestOptions = {},
-): Promise<T> {
+): Promise<ApiSuccessEnvelope<T>> {
   try {
     return await doRequest<T>(path, options);
   } catch (err) {
@@ -189,12 +206,7 @@ export async function apiRequest<T>(
       throw sessionExpiredError();
     }
 
-    await saveSession({
-      accessToken: rotated.accessToken,
-      refreshToken: rotated.refreshToken,
-      tenantId: rotated.tenantId,
-      sessionId: rotated.sessionId,
-    }).catch(() => undefined);
+    await saveSession(sessionFromTokens(rotated, stored.tenant)).catch(() => undefined);
 
     try {
       return await doRequest<T>(path, {
@@ -211,6 +223,14 @@ export async function apiRequest<T>(
       throw retryError;
     }
   }
+}
+
+/** Authenticated request that preserves the backend's pagination metadata. */
+export async function apiRequest<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  return (await apiRequestWithMeta<T>(path, options)).data;
 }
 
 export interface AuthUser {
@@ -267,6 +287,7 @@ export interface RegisterInput {
   lastName?: string;
 }
 
+/** Same auth contract as apps/web/src/lib/api.ts. */
 export const authApi = {
   register: (input: RegisterInput) =>
     apiRequest<AuthTokens>('/api/v1/auth/register', {
@@ -274,12 +295,20 @@ export const authApi = {
       body: input,
     }),
 
-  login: (email: string, password: string) =>
+  /** Public lookup of an ACTIVE company by its slug (the "Empresa" field). */
+  resolveTenant: (slug: string) =>
+    apiRequest<AuthTenant>(
+      `/api/v1/auth/tenant/${encodeURIComponent(slug)}`,
+    ),
+
+  /** The backend only accepts the user if it belongs to tenantId. */
+  login: (email: string, password: string, tenantId: string) =>
     apiRequest<AuthTokens>('/api/v1/auth/login', {
       method: 'POST',
       body: {
         email,
         password,
+        tenantId,
       },
     }),
 
@@ -303,58 +332,23 @@ export const authApi = {
     }),
 };
 
-export interface Category {
-  _id: string;
-  tenantId: string;
-  name: string;
-  description?: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  version: number;
+/**
+ * Web login flow: company slug → tenantId → credentials scoped to that
+ * tenant. The tenant is never chosen by id on the client; the backend
+ * resolves it from the slug and then binds the session to it.
+ */
+export async function loginWithCompany(
+  company: string,
+  email: string,
+  password: string,
+): Promise<{ tokens: AuthTokens; tenant: AuthTenant }> {
+  const tenant = await authApi.resolveTenant(company.trim());
+  const tokens = await authApi.login(email.trim(), password, tenant.tenantId);
+  return { tokens, tenant };
 }
 
-export interface Product {
-  _id: string;
-  tenantId: string;
-  sku: string;
-  name: string;
-  description?: string;
-  categoryId?: string;
-  unit: string;
-  barcode?: string;
-  cost: number;
-  price: number;
-  minimumStock: number;
-  maximumStock?: number;
-  trackInventory: boolean;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  version: number;
-}
-
-export interface CreateProductInput {
-  sku: string;
-  name: string;
-  description?: string;
-  categoryId?: string;
-  unit: string;
-  barcode?: string;
-  cost: number;
-  price: number;
-  minimumStock: number;
-  maximumStock?: number;
-  trackInventory: boolean;
-}
-
-export interface ListProductsParams {
-  search?: string;
-  categoryId?: string;
-  status?: string;
-  page?: number;
-  limit?: number;
-}
+export type Category = InventoryCategory;
+export type Product = InventoryProduct;
 
 function toQueryString(
   params: Record<string, string | number | undefined>,
@@ -372,31 +366,15 @@ function toQueryString(
   return parts.length > 0 ? `?${parts.join('&')}` : '';
 }
 
-export const inventoryApi = {
-  listCategories: (token: string) =>
-    apiRequest<Category[]>('/api/v1/inventory/categories?limit=100', {
-      token,
-    }),
-
-  listProducts: (token: string, params: ListProductsParams = {}) =>
-    apiRequest<Product[]>(
-      `/api/v1/inventory/products${toQueryString({
-        search: params.search,
-        categoryId: params.categoryId,
-        status: params.status,
-        page: params.page,
-        limit: params.limit ?? 100,
-      })}`,
-      { token },
-    ),
-
-  createProduct: (token: string, input: CreateProductInput) =>
-    apiRequest<Product>('/api/v1/inventory/products', {
-      method: 'POST',
-      token,
-      body: input,
-    }),
+const inventoryClient: InventoryRequestClient = {
+  request: <T>(path: string, options: { method?: string; token: string; body?: unknown }) =>
+    apiRequest<T>(path, options),
+  page: <T>(path: string, options: { method?: string; token: string; body?: unknown }) =>
+    apiRequestWithMeta<T>(path, options),
 };
+
+/** Shared inventory contract (packages/types/src/inventory.ts), same as Web. */
+export const inventoryApi = createInventoryApi(inventoryClient);
 
 export interface Asset {
   _id: string;
@@ -985,6 +963,43 @@ export interface StoredSession {
   refreshToken: string;
   tenantId: string;
   sessionId: string;
+  /**
+   * Display-only company metadata (name/slug). Authorization never reads it:
+   * the backend takes the tenant from the access token.
+   */
+  tenant?: AuthTenant;
+}
+
+function isTenantFor(value: unknown, tenantId: string): value is AuthTenant {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const tenant = value as Partial<AuthTenant>;
+
+  return (
+    tenant.tenantId === tenantId &&
+    typeof tenant.name === 'string' &&
+    typeof tenant.slug === 'string'
+  );
+}
+
+/** Keeps company metadata only when it belongs to the token's tenant. */
+export function sessionFromTokens(
+  tokens: Pick<AuthTokens, 'accessToken' | 'refreshToken' | 'tenantId' | 'sessionId'> & { tenant?: AuthTenant },
+  knownTenant?: AuthTenant,
+): StoredSession {
+  const candidate = tokens.tenant ?? knownTenant;
+
+  return {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    tenantId: tokens.tenantId,
+    sessionId: tokens.sessionId,
+    ...(isTenantFor(candidate, tokens.tenantId)
+      ? { tenant: { tenantId: candidate.tenantId, name: candidate.name, slug: candidate.slug } }
+      : {}),
+  };
 }
 
 export async function loadSession(): Promise<StoredSession | null> {
@@ -1001,11 +1016,14 @@ export async function loadSession(): Promise<StoredSession | null> {
       return null;
     }
 
+    const tenantId = parsed.tenantId ?? '';
+
     return {
       accessToken: parsed.accessToken,
       refreshToken: parsed.refreshToken,
-      tenantId: parsed.tenantId ?? '',
+      tenantId,
       sessionId: parsed.sessionId ?? '',
+      ...(isTenantFor(parsed.tenant, tenantId) ? { tenant: parsed.tenant } : {}),
     };
   } catch {
     return null;
@@ -1025,8 +1043,28 @@ export async function clearSession(): Promise<void> {
   await AsyncStorage.removeItem(SESSION_KEY);
 }
 
+const LAST_COMPANY_KEY = 'tramatech.lastCompany.v1';
+
+/** Preference: prefill the "Empresa" field with the last company slug used. */
+export async function loadLastCompany(): Promise<string> {
+  try {
+    return (await AsyncStorage.getItem(LAST_COMPANY_KEY)) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export async function saveLastCompany(slug: string): Promise<void> {
+  await AsyncStorage.setItem(LAST_COMPANY_KEY, slug);
+}
+
 export function friendlyMessage(err: unknown): string {
   if (err instanceof ApiClientError) {
+    // Express notFoundHandler: the deployed API predates this endpoint.
+    if (err.status === 404 && /^Route (GET|POST|PATCH|PUT|DELETE) \/api\/v1\//.test(err.message)) {
+      return `La API (${API_BASE_URL}) no tiene este servicio. Verifica que el backend desplegado esté actualizado.`;
+    }
+
     return err.message;
   }
 

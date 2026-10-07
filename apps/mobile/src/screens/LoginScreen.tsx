@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
@@ -17,19 +17,59 @@ import { radii, spacing, typography } from '../theme/tokens';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
-import { StatusBadge } from '../components/StatusBadge';
-import { Icon } from '../components/Icon';
+import { loadLastCompany } from '../lib/api';
 import type { RootStackParamList } from '../navigation/types';
 
 export function LoginScreen(): React.JSX.Element {
-   const navigation =
+  const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList, 'Login'>>();
   const { palette } = useTheme();
-  const { signIn, loading, error, clearError } = useAuth();
+  const { signIn, error, clearError } = useAuth();
   const insets = useSafeAreaInsets();
+  const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    void loadLastCompany().then((slug) => {
+      if (active && slug) {
+        setCompany((current) => current || slug);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSubmit = async (): Promise<void> => {
+    if (submitting) {
+      return;
+    }
+
+    clearError();
+    setValidationError('');
+
+    if (!company.trim() || !email.trim() || !password) {
+      setValidationError('Ingresa tu empresa, correo y contraseña.');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      await signIn(company, email, password);
+    } catch {
+      // The auth context exposes the backend message through `error`.
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const displayedError = validationError || error;
 
   return (
     <KeyboardAvoidingView
@@ -49,12 +89,25 @@ export function LoginScreen(): React.JSX.Element {
 
         <Card style={styles.card}>
           <Input
-            label="Usuario o correo"
+            label="Empresa"
+            value={company}
+            onChangeText={setCompany}
+            placeholder="mi-empresa"
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="next"
+            hint="Identificador de tu empresa (el mismo que usas en la Web)."
+            containerStyle={styles.field}
+          />
+          <Input
+            label="Correo electrónico"
             value={email}
             onChangeText={setEmail}
-            placeholder="operador@tramatech.mx"
+            placeholder="admin@miempresa.mx"
             autoCapitalize="none"
+            autoCorrect={false}
             keyboardType="email-address"
+            autoComplete="email"
             returnKeyType="next"
             containerStyle={styles.field}
           />
@@ -65,7 +118,9 @@ export function LoginScreen(): React.JSX.Element {
             onChangeText={setPassword}
             placeholder="••••••••"
             secureTextEntry={!showPassword}
+            autoCapitalize="none"
             returnKeyType="done"
+            onSubmitEditing={() => void handleSubmit()}
             rightAccessory={(
               <Pressable
                 onPress={() => setShowPassword((value) => !value)}
@@ -82,23 +137,21 @@ export function LoginScreen(): React.JSX.Element {
           <View style={styles.loginButton}>
             <Button
               label="Iniciar sesión"
-              loading={loading}
-              onPress={() => {
-                clearError();
-                void signIn(email, password);
-              }}
+              loading={submitting}
+              onPress={() => void handleSubmit()}
             />
           </View>
 
-          {error ? (
+          {displayedError ? (
             <Text accessibilityRole="alert" style={[styles.error, { color: palette.danger }]}>
-              {error}
+              {displayedError}
             </Text>
           ) : null}
 
           <Pressable
             onPress={() => {
               clearError();
+              setValidationError('');
               navigation.navigate('Register');
             }}
             accessibilityRole="button"
@@ -107,27 +160,7 @@ export function LoginScreen(): React.JSX.Element {
               ¿No tienes una cuenta? Crear una cuenta
             </Text>
           </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Recuperar contraseña">
-            <Text style={[styles.forgot, { color: palette.textSecondary }]}>
-              ¿Olvidaste tu contraseña?
-            </Text>
-          </Pressable>
         </Card>
-
-        <View style={styles.envRow}>
-          <StatusBadge label="Entorno · Planta MX-01" tone="neutral" />
-          <StatusBadge label="Mock · Fase 2" tone="info" />
-        </View>
-
-        <View style={styles.hintRow}>
-          <Icon name="info" size="sm" color={palette.textMuted} />
-          <Text style={[styles.hint, { color: palette.textMuted }]}>
-            Acceso de demostración: el botón entra directo al inicio.
-          </Text>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -177,33 +210,11 @@ const styles = StyleSheet.create({
   loginButton: {
     marginTop: spacing.xl,
   },
-  forgot: {
-    fontSize: typography.bodySmall.fontSize,
-    textAlign: 'center',
-    marginTop: spacing.md,
-  },
   registerLink: {
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '600',
     textAlign: 'center',
     marginTop: spacing.lg,
-  },
-  envRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xl,
-  },
-  hintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.md,
-  },
-  hint: {
-    fontSize: typography.caption.fontSize,
-    textAlign: 'center',
   },
   error: {
     fontSize: typography.bodySmall.fontSize,

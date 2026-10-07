@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -21,9 +22,13 @@ import type { RootStackParamList } from '../navigation/types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Register'>;
 
+/** Mirrors registerSchema in apps/api/src/modules/identity/presentation/schemas.ts. */
+const USERNAME_RE = /^[a-zA-Z0-9._-]+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function RegisterScreen(): React.JSX.Element {
   const { palette } = useTheme();
-  const { register, loading, error, clearError } = useAuth();
+  const { register, error, clearError } = useAuth();
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
 
@@ -37,8 +42,14 @@ export function RegisterScreen(): React.JSX.Element {
   const [validationError, setValidationError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleRegister = (): void => {
+  const handleRegister = async (): Promise<void> => {
+    // Registration creates a company; a double tap must not create two.
+    if (submitting) {
+      return;
+    }
+
     clearError();
     setValidationError('');
 
@@ -48,25 +59,31 @@ export function RegisterScreen(): React.JSX.Element {
     const normalizedFirstName = firstName.trim();
     const normalizedLastName = lastName.trim();
 
-    if (
-      !normalizedCompany ||
-      !normalizedUsername ||
-      !normalizedEmail ||
-      !normalizedFirstName ||
-      !normalizedLastName ||
-      !password ||
-      !confirmPassword
-    ) {
-      setValidationError('Completa todos los campos.');
+    if (!normalizedCompany || !normalizedUsername || !normalizedEmail || !password) {
+      setValidationError('Completa los campos obligatorios: empresa, usuario, correo y contraseña.');
       return;
     }
 
-    if (!normalizedEmail.includes('@')) {
+    if (normalizedCompany.length < 2 || normalizedCompany.length > 200) {
+      setValidationError('El nombre de la empresa debe tener entre 2 y 200 caracteres.');
+      return;
+    }
+
+    if (
+      normalizedUsername.length < 3 ||
+      normalizedUsername.length > 64 ||
+      !USERNAME_RE.test(normalizedUsername)
+    ) {
+      setValidationError('El usuario debe tener de 3 a 64 caracteres: letras, números, puntos, guiones o guiones bajos.');
+      return;
+    }
+
+    if (!EMAIL_RE.test(normalizedEmail)) {
       setValidationError('Ingresa un correo electrónico válido.');
       return;
     }
 
-    if (password.length < 8) {
+    if (password.length < 8 || password.length > 128) {
       setValidationError('La contraseña debe tener al menos 8 caracteres.');
       return;
     }
@@ -76,14 +93,29 @@ export function RegisterScreen(): React.JSX.Element {
       return;
     }
 
-    void register({
-      companyName: normalizedCompany,
-      username: normalizedUsername,
-      email: normalizedEmail,
-      password,
-      firstName: normalizedFirstName,
-      lastName: normalizedLastName,
-    });
+    setSubmitting(true);
+
+    try {
+      const tenant = await register({
+        companyName: normalizedCompany,
+        username: normalizedUsername,
+        email: normalizedEmail,
+        password,
+        firstName: normalizedFirstName || undefined,
+        lastName: normalizedLastName || undefined,
+      });
+
+      if (tenant) {
+        Alert.alert(
+          'Empresa registrada',
+          `Para iniciar sesión en Web o Mobile usa la empresa "${tenant.slug}" con tu correo y contraseña.`,
+        );
+      }
+    } catch {
+      // The auth context exposes the backend message through `error`.
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const displayedError = validationError || error;
@@ -152,7 +184,7 @@ export function RegisterScreen(): React.JSX.Element {
           />
 
           <Input
-            label="Nombre"
+            label="Nombre (opcional)"
             containerStyle={styles.field}
             value={firstName}
             onChangeText={setFirstName}
@@ -161,7 +193,7 @@ export function RegisterScreen(): React.JSX.Element {
           />
 
           <Input
-            label="Apellido"
+            label="Apellido (opcional)"
             containerStyle={styles.field}
             value={lastName}
             onChangeText={setLastName}
@@ -224,8 +256,8 @@ export function RegisterScreen(): React.JSX.Element {
           <View style={styles.registerButton}>
             <Button
               label="Crear cuenta"
-              loading={loading}
-              onPress={handleRegister}
+              loading={submitting}
+              onPress={() => void handleRegister()}
             />
           </View>
 

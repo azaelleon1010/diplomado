@@ -8,6 +8,7 @@ import { TopBar } from '../components/TopBar';
 import { Card } from '../components/Card';
 import { StatusBadge } from '../components/StatusBadge';
 import { unreadAlertsCount } from '../data/alerts';
+import { API_BASE_URL } from '../lib/api';
 
 export function AboutScreen(): React.JSX.Element {
   const { palette } = useTheme();
@@ -34,7 +35,7 @@ export function AboutScreen(): React.JSX.Element {
         <Card>
           <View style={styles.metaRow}>
             <Text style={[styles.metaLabel, { color: palette.textSecondary }]}>Versión</Text>
-            <StatusBadge label="0.1.0 · Fase 2 (mock)" tone="info" />
+            <StatusBadge label="0.1.0 · Fase 3 (API real)" tone="info" />
           </View>
           <View style={styles.metaRow}>
             <Text style={[styles.metaLabel, { color: palette.textSecondary }]}>Entorno</Text>
@@ -42,7 +43,7 @@ export function AboutScreen(): React.JSX.Element {
           </View>
           <View style={styles.metaRow}>
             <Text style={[styles.metaLabel, { color: palette.textSecondary }]}>API</Text>
-            <StatusBadge label="No conectada en esta fase" tone="warning" />
+            <StatusBadge label={API_BASE_URL} tone="info" />
           </View>
         </Card>
       </ScrollView>

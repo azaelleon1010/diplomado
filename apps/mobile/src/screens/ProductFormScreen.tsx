@@ -1,5 +1,5 @@
 import { darkPalette } from '../theme/tokens';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,231 +12,326 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useRoute, type RouteProp } from '@react-navigation/native';
 
+import { useAuth } from '../auth/AuthContext';
 import { useAppNavigation } from '../hooks/useAppNavigation';
+import { MODULE_ACCESS, hasAnyPermission } from '../navigation/moduleAccess';
+import type { OperationsStackParamList } from '../navigation/types';
 import {
   friendlyMessage,
   inventoryApi,
   loadSession,
   type Category,
+  type Product,
 } from '../lib/api';
+import {
+  EMPTY_PRODUCT_FORM,
+  VERSION_CONFLICT_MESSAGE,
+  isVersionConflict,
+  productToFormValues,
+  toCreateProductPayload,
+  toUpdateProductPayload,
+  validateProductForm,
+  type ProductFormValues,
+} from '../../../../packages/types/src/inventory';
+
+type FormRoute = RouteProp<OperationsStackParamList, 'ProductForm'>;
+
+const SESSION_MISSING = 'Tu sesión no está disponible. Inicia sesión nuevamente.';
 
 export function ProductFormScreen(): React.JSX.Element {
   const navigation = useAppNavigation();
+  const route = useRoute<FormRoute>();
+  const productId = route.params?.productId;
+  const isEditing = productId !== undefined;
 
-  const [sku, setSku] = useState('');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const { me } = useAuth();
+  const permissions = me?.permissions ?? [];
+  const canSave = hasAnyPermission(
+    permissions,
+    isEditing ? MODULE_ACCESS.inventoryUpdate : MODULE_ACCESS.inventoryCreate,
+  );
+  const canDeactivate = hasAnyPermission(permissions, MODULE_ACCESS.inventoryDelete);
+  const canActivate = hasAnyPermission(permissions, MODULE_ACCESS.inventoryUpdate);
 
+  const [form, setForm] = useState<ProductFormValues>(EMPTY_PRODUCT_FORM);
+  /** Server copy: source of the version sent as expectedVersion. */
+  const [product, setProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [categoryId, setCategoryId] = useState('');
-  const [categoryName, setCategoryName] = useState('');
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
-  const [loadingCategories, setLoadingCategories] = useState(true);
-
-  const [unit, setUnit] = useState('pieza');
-  const [barcode, setBarcode] = useState('');
-  const [cost, setCost] = useState('');
-  const [price, setPrice] = useState('');
-  const [minimumStock, setMinimumStock] = useState('0');
-  const [maximumStock, setMaximumStock] = useState('');
-  const [trackInventory, setTrackInventory] = useState(true);
-
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    void loadCategories();
-  }, []);
+  const updateField = <K extends keyof ProductFormValues>(
+    field: K,
+    value: ProductFormValues[K],
+  ): void => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
 
-  async function loadCategories(): Promise<void> {
+  const load = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setLoadError(null);
+
     try {
-      setLoadingCategories(true);
-
       const session = await loadSession();
 
       if (!session?.accessToken) {
-        Alert.alert(
-          'Sesión no disponible',
-          'Tu sesión no está disponible. Inicia sesión nuevamente.',
-        );
+        setLoadError(SESSION_MISSING);
         return;
       }
 
-      const categories = await inventoryApi.listCategories(
-        session.accessToken,
-      );
+      const [fetchedCategories, current] = await Promise.all([
+        inventoryApi.listCategories(session.accessToken).catch(() => [] as Category[]),
+        productId !== undefined
+          ? inventoryApi.getProduct(session.accessToken, productId)
+          : Promise.resolve(null),
+      ]);
 
-      setCategories(Array.isArray(categories) ? categories : []);
+      setCategories(fetchedCategories);
+
+      if (current) {
+        setProduct(current);
+        setForm(productToFormValues(current));
+      }
     } catch (error) {
-      setCategories([]);
-      Alert.alert('Error', friendlyMessage(error));
+      setLoadError(friendlyMessage(error));
     } finally {
-      setLoadingCategories(false);
+      setLoading(false);
     }
-  }
+  }, [productId]);
 
-  function selectCategory(category: Category): void {
-    if (!category._id) {
-      Alert.alert(
-        'Categoría inválida',
-        'La categoría recibida no tiene un identificador válido.',
-      );
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const dirty = useMemo(
+    () =>
+      product !== null &&
+      JSON.stringify(form) !== JSON.stringify(productToFormValues(product)),
+    [form, product],
+  );
+
+  const selectableCategories = categories.filter(
+    (category) => category.status === 'ACTIVE',
+  );
+  const selectedCategoryName = form.categoryId
+    ? categories.find((category) => category._id === form.categoryId)?.name ??
+      'Categoría no disponible'
+    : '';
+
+  function handleError(error: unknown): void {
+    if (isVersionConflict(error)) {
+      Alert.alert('Conflicto de edición', VERSION_CONFLICT_MESSAGE);
+      void load();
       return;
     }
 
-    setCategoryId(category._id);
-    setCategoryName(category.name);
-    setCategoryModalVisible(false);
+    Alert.alert('Error', friendlyMessage(error));
   }
 
   async function handleSubmit(): Promise<void> {
-    if (!sku.trim()) {
-      Alert.alert('Falta información', 'Ingresa el SKU del producto.');
+    if (saving || !canSave) {
       return;
     }
 
-    if (!name.trim()) {
-      Alert.alert('Falta información', 'Ingresa el nombre del producto.');
+    const result = validateProductForm(form);
+
+    if (!result.ok) {
+      Alert.alert('Dato inválido', result.error);
       return;
-    }
-
-    if (!unit.trim()) {
-      Alert.alert('Falta información', 'Ingresa la unidad del producto.');
-      return;
-    }
-
-    if (!cost.trim() || Number.isNaN(Number(cost)) || Number(cost) < 0) {
-      Alert.alert('Dato inválido', 'Ingresa un costo válido mayor o igual a 0.');
-      return;
-    }
-
-    if (!price.trim() || Number.isNaN(Number(price)) || Number(price) < 0) {
-      Alert.alert('Dato inválido', 'Ingresa un precio válido mayor o igual a 0.');
-      return;
-    }
-
-    const minStock = Number(minimumStock || '0');
-
-    if (!Number.isInteger(minStock) || minStock < 0) {
-      Alert.alert('Dato inválido', 'El stock mínimo debe ser un número entero mayor o igual a 0.');
-      return;
-    }
-
-    let maxStock: number | undefined;
-
-    if (maximumStock.trim()) {
-      maxStock = Number(maximumStock);
-
-      if (!Number.isInteger(maxStock) || maxStock < 0) {
-        Alert.alert('Dato inválido', 'El stock máximo debe ser un número entero mayor o igual a 0.');
-        return;
-      }
-
-      if (maxStock < minStock) {
-        Alert.alert(
-          'Dato inválido',
-          'El stock máximo no puede ser menor que el stock mínimo.',
-        );
-        return;
-      }
     }
 
     const session = await loadSession();
 
     if (!session?.accessToken) {
-      Alert.alert(
-        'Sesión no disponible',
-        'Tu sesión no está disponible. Inicia sesión nuevamente.',
-      );
+      Alert.alert('Sesión no disponible', SESSION_MISSING);
       return;
     }
 
     setSaving(true);
 
     try {
-      await inventoryApi.createProduct(session.accessToken, {
-        sku: sku.trim(),
-        name: name.trim(),
-        description: description.trim() || undefined,
-        categoryId: categoryId || undefined,
-        unit: unit.trim(),
-        barcode: barcode.trim() || undefined,
-        cost: Number(cost),
-        price: Number(price),
-        minimumStock: minStock,
-        maximumStock: maxStock,
-        trackInventory,
-      });
+      if (product) {
+        const updated = await inventoryApi.updateProduct(
+          session.accessToken,
+          product._id,
+          toUpdateProductPayload(result.fields, product.version),
+        );
 
-      Alert.alert(
-        'Producto creado',
-        'El producto se registró correctamente.',
-        [
-          {
-            text: 'Aceptar',
-            onPress: () => navigation.goBack(),
-          },
-        ],
-      );
+        setProduct(updated);
+        setForm(productToFormValues(updated));
+        Alert.alert('Producto actualizado', 'Los cambios se guardaron correctamente.', [
+          { text: 'Aceptar', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        await inventoryApi.createProduct(
+          session.accessToken,
+          toCreateProductPayload(result.fields),
+        );
+
+        Alert.alert('Producto creado', 'El producto se registró correctamente.', [
+          { text: 'Aceptar', onPress: () => navigation.goBack() },
+        ]);
+      }
     } catch (error) {
-      Alert.alert('Error', friendlyMessage(error));
+      handleError(error);
     } finally {
       setSaving(false);
     }
   }
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Text style={styles.backButtonText}>‹</Text>
-        </TouchableOpacity>
+  async function changeStatus(current: Product): Promise<void> {
+    const session = await loadSession();
 
-        <View style={styles.headerText}>
-          <Text style={styles.title}>Nuevo producto</Text>
-          <Text style={styles.subtitle}>
-            Ingresa la información del producto
+    if (!session?.accessToken) {
+      Alert.alert('Sesión no disponible', SESSION_MISSING);
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const updated =
+        current.status === 'ACTIVE'
+          ? await inventoryApi.deactivateProduct(session.accessToken, current._id)
+          : await inventoryApi.activateProduct(session.accessToken, current._id, current.version);
+
+      setProduct(updated);
+      setForm(productToFormValues(updated));
+      Alert.alert(
+        updated.status === 'ACTIVE' ? 'Producto activado' : 'Producto desactivado',
+        updated.status === 'ACTIVE'
+          ? 'El producto vuelve a estar disponible.'
+          : 'El producto quedó inactivo. Puedes reactivarlo cuando lo necesites.',
+      );
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleToggleStatus(): void {
+    if (!product || saving) {
+      return;
+    }
+
+    if (dirty) {
+      Alert.alert(
+        'Cambios sin guardar',
+        'Guarda o descarta tus cambios antes de cambiar el estado del producto.',
+      );
+      return;
+    }
+
+    if (product.status === 'ACTIVE') {
+      Alert.alert(
+        'Desactivar producto',
+        `¿Desactivar "${product.name}"? No se elimina: queda inactivo y puede reactivarse.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Desactivar', style: 'destructive', onPress: () => void changeStatus(product) },
+        ],
+      );
+      return;
+    }
+
+    void changeStatus(product);
+  }
+
+  const editable = canSave && !saving;
+  const showStatusAction =
+    product !== null &&
+    (product.status === 'ACTIVE' ? canDeactivate : canActivate);
+
+  const renderBody = () => {
+    if (loading) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={darkPalette.brand} />
+          <Text style={styles.centeredText}>
+            {isEditing ? 'Cargando producto...' : 'Cargando categorías...'}
           </Text>
         </View>
-      </View>
+      );
+    }
 
+    if (loadError || (isEditing && !product)) {
+      return (
+        <View style={styles.centered}>
+          <Text style={styles.emptyTitle}>No se pudo cargar el producto</Text>
+          <Text style={styles.emptyDescription}>
+            {loadError ?? 'El producto no existe o no pertenece a tu empresa.'}
+          </Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => void load()}>
+            <Text style={styles.saveButtonText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        {product ? (
+          <View style={styles.statusRow}>
+            <Text style={styles.statusLabel}>Estado</Text>
+            <Text
+              style={[
+                styles.statusValue,
+                product.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive,
+              ]}
+            >
+              {product.status === 'ACTIVE' ? 'ACTIVO' : 'INACTIVO'}
+            </Text>
+          </View>
+        ) : null}
+
+        {!canSave ? (
+          <Text style={styles.readOnlyHint}>
+            Tu rol no permite {isEditing ? 'editar' : 'crear'} productos.
+          </Text>
+        ) : null}
+
         <Text style={styles.label}>SKU *</Text>
 
         <TextInput
-          value={sku}
-          onChangeText={setSku}
+          value={form.sku}
+          onChangeText={(value) => updateField('sku', value)}
           placeholder="Ej. PROD-001"
           placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
           autoCapitalize="characters"
+          autoCorrect={false}
+          editable={editable}
         />
 
         <Text style={styles.label}>Nombre del producto *</Text>
 
         <TextInput
-          value={name}
-          onChangeText={setName}
+          value={form.name}
+          onChangeText={(value) => updateField('name', value)}
           placeholder="Ej. Laptop Dell"
           placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
+          editable={editable}
         />
 
         <Text style={styles.label}>Descripción</Text>
 
         <TextInput
-          value={description}
-          onChangeText={setDescription}
+          value={form.description}
+          onChangeText={(value) => updateField('description', value)}
           placeholder="Descripción del producto"
           placeholderTextColor={darkPalette.textMuted}
           style={[styles.input, styles.textArea]}
           multiline
+          editable={editable}
         />
 
         <Text style={styles.label}>Categoría</Text>
@@ -244,103 +339,93 @@ export function ProductFormScreen(): React.JSX.Element {
         <TouchableOpacity
           style={styles.selector}
           onPress={() => setCategoryModalVisible(true)}
-          disabled={loadingCategories}
+          disabled={!editable}
         >
           <View style={styles.selectorContent}>
-            {loadingCategories ? (
-              <>
-                <ActivityIndicator size="small" color={darkPalette.brand} />
-                <Text style={styles.selectorLoading}>
-                  Cargando categorías...
-                </Text>
-              </>
-            ) : (
-              <Text
-                style={[
-                  styles.selectorText,
-                  !categoryName && styles.selectorPlaceholder,
-                ]}
-              >
-                {categoryName || 'Seleccionar categoría'}
-              </Text>
-            )}
+            <Text
+              style={[
+                styles.selectorText,
+                !selectedCategoryName && styles.selectorPlaceholder,
+              ]}
+            >
+              {selectedCategoryName || 'Sin categoría'}
+            </Text>
           </View>
 
-          {!loadingCategories ? (
-            <Text style={styles.selectorArrow}>⌄</Text>
-          ) : null}
+          <Text style={styles.selectorArrow}>⌄</Text>
         </TouchableOpacity>
 
-        {!loadingCategories && categories.length === 0 ? (
-          <Text style={styles.noCategoriesHint}>
-            No hay categorías disponibles. Crea una categoría antes de
-            registrar el producto.
-          </Text>
-        ) : null}
-
-        <Text style={styles.label}>Unidad *</Text>
+        <Text style={styles.label}>Unidad</Text>
 
         <TextInput
-          value={unit}
-          onChangeText={setUnit}
-          placeholder="Ej. pieza, kg, litro"
+          value={form.unit}
+          onChangeText={(value) => updateField('unit', value)}
+          placeholder="Ej. PZA, KG, LT"
           placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
+          autoCapitalize="characters"
+          editable={editable}
         />
 
         <Text style={styles.label}>Código de barras</Text>
 
         <TextInput
-          value={barcode}
-          onChangeText={setBarcode}
+          value={form.barcode}
+          onChangeText={(value) => updateField('barcode', value)}
           placeholder="Código de barras"
           placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
-          keyboardType="numeric"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={editable}
         />
 
         <Text style={styles.label}>Costo *</Text>
 
         <TextInput
-          value={cost}
-          onChangeText={setCost}
+          value={form.cost}
+          onChangeText={(value) => updateField('cost', value)}
           placeholder="0.00"
           placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
           keyboardType="decimal-pad"
+          editable={editable}
         />
 
         <Text style={styles.label}>Precio de venta *</Text>
 
         <TextInput
-          value={price}
-          onChangeText={setPrice}
+          value={form.price}
+          onChangeText={(value) => updateField('price', value)}
           placeholder="0.00"
           placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
           keyboardType="decimal-pad"
+          editable={editable}
         />
 
         <Text style={styles.label}>Stock mínimo</Text>
 
         <TextInput
-          value={minimumStock}
-          onChangeText={setMinimumStock}
+          value={form.minimumStock}
+          onChangeText={(value) => updateField('minimumStock', value)}
           placeholder="0"
           placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
-          keyboardType="numeric"
+          keyboardType="number-pad"
+          editable={editable}
         />
 
         <Text style={styles.label}>Stock máximo</Text>
 
         <TextInput
-          value={maximumStock}
-          onChangeText={setMaximumStock}
+          value={form.maximumStock}
+          onChangeText={(value) => updateField('maximumStock', value)}
           placeholder="Opcional"
           placeholderTextColor={darkPalette.textMuted}
           style={styles.input}
-          keyboardType="numeric"
+          keyboardType="number-pad"
+          editable={editable}
         />
 
         <View style={styles.switchCard}>
@@ -355,24 +440,78 @@ export function ProductFormScreen(): React.JSX.Element {
           </View>
 
           <Switch
-            value={trackInventory}
-            onValueChange={setTrackInventory}
+            value={form.trackInventory}
+            onValueChange={(value) => updateField('trackInventory', value)}
+            disabled={!editable}
           />
         </View>
 
-        <TouchableOpacity
-          onPress={handleSubmit}
-          disabled={saving}
-          style={[
-            styles.saveButton,
-            saving && styles.saveButtonDisabled,
-          ]}
-        >
-          <Text style={styles.saveButtonText}>
-            {saving ? 'Guardando...' : 'Guardar producto'}
-          </Text>
-        </TouchableOpacity>
+        {canSave ? (
+          <TouchableOpacity
+            onPress={() => void handleSubmit()}
+            disabled={saving}
+            style={[
+              styles.saveButton,
+              saving && styles.saveButtonDisabled,
+            ]}
+          >
+            <Text style={styles.saveButtonText}>
+              {saving
+                ? 'Guardando...'
+                : isEditing
+                  ? 'Guardar cambios'
+                  : 'Guardar producto'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {showStatusAction && product ? (
+          <TouchableOpacity
+            onPress={handleToggleStatus}
+            disabled={saving}
+            style={[
+              styles.statusButton,
+              product.status === 'ACTIVE' ? styles.deactivateButton : styles.activateButton,
+              saving && styles.saveButtonDisabled,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusButtonText,
+                product.status === 'ACTIVE' ? styles.deactivateText : styles.activateText,
+              ]}
+            >
+              {product.status === 'ACTIVE' ? 'Desactivar producto' : 'Activar producto'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Text style={styles.backButtonText}>‹</Text>
+        </TouchableOpacity>
+
+        <View style={styles.headerText}>
+          <Text style={styles.title}>
+            {isEditing ? 'Editar producto' : 'Nuevo producto'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {isEditing
+              ? 'Los cambios se guardan en la API para Web y Mobile'
+              : 'Ingresa la información del producto'}
+          </Text>
+        </View>
+      </View>
+
+      {renderBody()}
 
       <Modal
         visible={categoryModalVisible}
@@ -386,7 +525,7 @@ export function ProductFormScreen(): React.JSX.Element {
               <View>
                 <Text style={styles.modalTitle}>Seleccionar categoría</Text>
                 <Text style={styles.modalSubtitle}>
-                  Elige una categoría existente
+                  Categorías activas de tu empresa
                 </Text>
               </View>
 
@@ -398,51 +537,44 @@ export function ProductFormScreen(): React.JSX.Element {
               </TouchableOpacity>
             </View>
 
-            {categories.length === 0 ? (
-              <View style={styles.emptyCategories}>
-                <Text style={styles.emptyTitle}>
-                  No hay categorías
-                </Text>
+            <ScrollView contentContainerStyle={styles.categoryList}>
+              {[{ _id: '', name: 'Sin categoría' }, ...selectableCategories].map((category) => {
+                const selected = category._id === form.categoryId;
 
-                <Text style={styles.emptyDescription}>
-                  Primero debes crear una categoría para poder asignarla
-                  a este producto.
-                </Text>
-              </View>
-            ) : (
-              <ScrollView
-                contentContainerStyle={styles.categoryList}
-              >
-                {categories.map((category) => {
-                  const selected = category._id === categoryId;
-
-                  return (
-                    <TouchableOpacity
-                      key={category._id}
-                      onPress={() => selectCategory(category)}
+                return (
+                  <TouchableOpacity
+                    key={category._id || 'none'}
+                    onPress={() => {
+                      updateField('categoryId', category._id);
+                      setCategoryModalVisible(false);
+                    }}
+                    style={[
+                      styles.categoryOption,
+                      selected && styles.categoryOptionSelected,
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.categoryOption,
-                        selected && styles.categoryOptionSelected,
+                        styles.categoryOptionText,
+                        selected && styles.categoryOptionTextSelected,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.categoryOptionText,
-                          selected &&
-                            styles.categoryOptionTextSelected,
-                        ]}
-                      >
-                        {category.name}
-                      </Text>
+                      {category.name}
+                    </Text>
 
-                      {selected ? (
-                        <Text style={styles.checkmark}>✓</Text>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
+                    {selected ? (
+                      <Text style={styles.checkmark}>✓</Text>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+
+              {selectableCategories.length === 0 ? (
+                <Text style={styles.emptyDescription}>
+                  No hay categorías activas. Puedes guardar el producto sin categoría.
+                </Text>
+              ) : null}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -504,6 +636,64 @@ const styles = StyleSheet.create({
     paddingBottom: 50,
   },
 
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+  },
+
+  centeredText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: darkPalette.textSecondary,
+  },
+
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: darkPalette.brand,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+  },
+
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+
+  statusLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: darkPalette.textPrimary,
+  },
+
+  statusValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    overflow: 'hidden',
+    color: '#FFFFFF',
+  },
+
+  statusActive: {
+    backgroundColor: darkPalette.success,
+  },
+
+  statusInactive: {
+    backgroundColor: darkPalette.disabled,
+  },
+
+  readOnlyHint: {
+    fontSize: 13,
+    color: darkPalette.textSecondary,
+    marginBottom: 18,
+  },
+
   label: {
     fontSize: 14,
     fontWeight: '700',
@@ -556,23 +746,10 @@ const styles = StyleSheet.create({
     color: darkPalette.textMuted,
   },
 
-  selectorLoading: {
-    marginLeft: 10,
-    fontSize: 15,
-    color: darkPalette.textSecondary,
-  },
-
   selectorArrow: {
     fontSize: 24,
     color: darkPalette.textSecondary,
     marginLeft: 10,
-  },
-
-  noCategoriesHint: {
-    fontSize: 13,
-    color: darkPalette.textSecondary,
-    marginBottom: 18,
-    marginTop: -10,
   },
 
   switchCard: {
@@ -613,13 +790,42 @@ const styles = StyleSheet.create({
   },
 
   saveButtonDisabled: {
-    backgroundColor: darkPalette.disabled,
+    opacity: 0.6,
   },
 
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+
+  statusButton: {
+    marginTop: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 15,
+    alignItems: 'center',
+  },
+
+  deactivateButton: {
+    borderColor: darkPalette.danger,
+  },
+
+  activateButton: {
+    borderColor: darkPalette.success,
+  },
+
+  statusButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  deactivateText: {
+    color: darkPalette.danger,
+  },
+
+  activateText: {
+    color: darkPalette.success,
   },
 
   modalOverlay: {
@@ -710,11 +916,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: darkPalette.brand,
     fontWeight: '700',
-  },
-
-  emptyCategories: {
-    padding: 30,
-    alignItems: 'center',
   },
 
   emptyTitle: {

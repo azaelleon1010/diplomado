@@ -236,6 +236,25 @@ describe('inventory use cases (fake stores)', () => {
     expect(done.status).toBe('INACTIVE');
   });
 
+  it('clears description and category when the client sends null', async () => {
+    const { deps, ctx } = makeStores();
+    const category = await createCategory(ctx, { name: 'Telas' }, deps);
+    const product = await createProduct(
+      ctx,
+      { sku: 'D-1', name: 'Producto', description: 'Texto', unit: 'pza', cost: 1, price: 2, minimumStock: 0, categoryId: category._id },
+      deps,
+    );
+    const cleared = await updateProduct(
+      ctx,
+      product._id,
+      { description: null, categoryId: null, expectedVersion: product.version },
+      deps,
+    );
+    expect(cleared.description).toBeUndefined();
+    expect(cleared.categoryId).toBeUndefined();
+    expect(cleared.version).toBe(product.version + 1);
+  });
+
   it('deactivates warehouses and exposes version conflicts on update', async () => {
     const { deps, ctx } = makeStores();
     const warehouse = await createWarehouse(ctx, { code: 'ALM-01', name: 'Principal' }, deps);

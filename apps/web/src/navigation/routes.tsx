@@ -4,7 +4,9 @@ import { ModulePlaceholder } from '../screens/ModulePlaceholder';
 import { LoginScreen } from '../screens/Login';
 import { RegisterScreen } from '../screens/Register';
 import { RouteStateScreen } from '../screens/RouteStateScreen';
+import { DashboardScreen } from '../screens/Dashboard';
 import { ROUTE_DEFINITIONS, getRouteDefinition, canAccessRoute } from './registry';
+import { InventoryScreen } from '../screens/Inventory';
 
 export const PUBLIC_ROUTES = ['/login', '/register'];
 
@@ -38,7 +40,7 @@ export function renderRoute(
 ) {
   if (path === '/login') return <LoginScreen onNavigate={onNavigate} />;
   if (path === '/register') return <RegisterScreen onNavigate={onNavigate} />;
-  if (path === '/') return <ModulePlaceholder moduleName="Dashboard" />;
+  if (path === '/') return <DashboardScreen />;
 
   if (!canAccessRoute(path, permissions)) {
     return (
@@ -52,7 +54,9 @@ export function renderRoute(
   }
 
   if (path === '/assistant') return <AssistantPanel />;
-  if (path === '/dashboard') return <ModulePlaceholder moduleName="Dashboard" />;
+  if (path === '/dashboard') return <DashboardScreen />;
+  // Registry requires inventory.read; the API enforces it again server-side.
+  if (path === '/operations/inventory') return <InventoryScreen />;
 
   const exactRoute = ROUTE_DEFINITIONS.find((route) => route.path === path);
   if (exactRoute) return <ModulePlaceholder moduleName={exactRoute.title} />;

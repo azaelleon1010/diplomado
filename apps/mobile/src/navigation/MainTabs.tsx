@@ -1,6 +1,5 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useFocusEffect } from '@react-navigation/native';
 import type { MainTabParamList } from './types';
 import { useTheme } from '../theme/Theme';
 import { Icon, type IconName } from '../components/Icon';
@@ -9,7 +8,6 @@ import { AssistantScreen } from '../screens/AssistantScreen';
 import { OperationsStack } from './OperationsStack';
 import { AlertsScreen } from '../screens/AlertsScreen';
 import { MoreStack } from './MoreStack';
-import { unreadAlertsCount } from '../data/alerts';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -29,22 +27,8 @@ const TAB_LABELS: Record<keyof MainTabParamList, string> = {
   More: 'Más',
 };
 
-/** Re-renders the badge count every time the tabs regain focus. */
-function useAlertsBadgeTick(): number {
-  const [tick, setTick] = React.useState(0);
-  useFocusEffect(
-    useCallback(() => {
-      setTick((t) => t + 1);
-    }, []),
-  );
-  return tick;
-}
-
 export function MainTabs(): React.JSX.Element {
   const { palette } = useTheme();
-  const badgeTick = useAlertsBadgeTick();
-  void badgeTick;
-  const unread = unreadAlertsCount();
 
   return (
     <Tab.Navigator
@@ -79,11 +63,7 @@ export function MainTabs(): React.JSX.Element {
       <Tab.Screen
         name="Alerts"
         component={AlertsScreen}
-        options={{
-          tabBarLabel: TAB_LABELS.Alerts,
-          tabBarBadge: unread > 0 ? unread : undefined,
-          tabBarBadgeStyle: { backgroundColor: palette.danger },
-        }}
+        options={{ tabBarLabel: TAB_LABELS.Alerts }}
       />
       <Tab.Screen name="More" component={MoreStack} options={{ tabBarLabel: TAB_LABELS.More }} />
     </Tab.Navigator>

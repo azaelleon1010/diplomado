@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
+  RefreshControl,
   StyleSheet,
   View,
   Text,
@@ -17,6 +18,7 @@ import { ListItem } from '../components/ListItem';
 import { EmptyState, ErrorState, LoadingState } from '../components/States';
 import { Card } from '../components/Card';
 import { unreadAlertsCount } from '../data/alerts';
+import { MODULE_ACCESS, hasAnyPermission } from '../navigation/moduleAccess';
 import {
   friendlyMessage,
   inventoryApi,
@@ -24,18 +26,26 @@ import {
   type Product,
 } from '../lib/api';
 
+/** Same page size as the Web inventory screen. */
+const PAGE_LIMIT = 100;
+
 export function InventoryScreen(): React.JSX.Element {
   const { palette } = useTheme();
-  const { userName } = useAuth();
+  const { userName, me } = useAuth();
   const navigation = useAppNavigation();
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
+  const [total, setTotal] = useState(0);
   const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const permissions = me?.permissions ?? [];
+  const canCreate = hasAnyPermission(permissions, MODULE_ACCESS.inventoryCreate);
+  const canEdit = hasAnyPermission(permissions, MODULE_ACCESS.inventoryUpdate);
+
   const loadProducts = useCallback(async () => {
-    setLoading(true);
     setError(null);
 
     try {
@@ -47,12 +57,13 @@ export function InventoryScreen(): React.JSX.Element {
         return;
       }
 
-      const [items, categories] = await Promise.all([
-        inventoryApi.listProducts(session.accessToken, { limit: 100 }),
+      const [page, categories] = await Promise.all([
+        inventoryApi.listProductsPage(session.accessToken, { limit: PAGE_LIMIT }),
         inventoryApi.listCategories(session.accessToken).catch(() => []),
       ]);
 
-      setProducts(Array.isArray(items) ? items : []);
+      setProducts(page.items);
+      setTotal(page.total);
 
       const names: Record<string, string> = {};
 
@@ -62,18 +73,25 @@ export function InventoryScreen(): React.JSX.Element {
 
       setCategoryNames(names);
     } catch (err) {
-      setProducts([]);
+      // Keep the last list on screen; the inline error says it is stale.
       setError(friendlyMessage(err));
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Every focus re-reads from the API, so changes made on Web appear here.
   useFocusEffect(
     useCallback(() => {
       void loadProducts();
     }, [loadProducts]),
   );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadProducts();
+    setRefreshing(false);
+  }, [loadProducts]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -89,6 +107,11 @@ export function InventoryScreen(): React.JSX.Element {
     );
   }, [query, products]);
 
+  const countText =
+    total > products.length
+      ? `${filtered.length} de ${products.length} cargados · ${total} en total`
+      : `${filtered.length} de ${products.length} productos`;
+
   const renderContent = () => {
     if (loading && products.length === 0) {
       return <LoadingState label="Cargando productos…" />;
@@ -99,7 +122,10 @@ export function InventoryScreen(): React.JSX.Element {
         <ErrorState
           title="No se pudo cargar el inventario"
           detail={error}
-          onRetry={() => void loadProducts()}
+          onRetry={() => {
+            setLoading(true);
+            void loadProducts();
+          }}
         />
       );
     }
@@ -109,6 +135,14 @@ export function InventoryScreen(): React.JSX.Element {
         data={filtered}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.list}
+        refreshControl={(
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor={palette.accent}
+            colors={[palette.accent]}
+          />
+        )}
         ListEmptyComponent={
           <EmptyState
             title="Sin resultados"
@@ -123,10 +157,16 @@ export function InventoryScreen(): React.JSX.Element {
           <Card style={styles.itemCard}>
             <ListItem
               title={item.name}
-              subtitle={`${item.sku}${item.categoryId && categoryNames[item.categoryId] ? ` · ${categoryNames[item.categoryId]}` : ''}`}
-              rightText={`$${item.price.toFixed(2)}`}
+              subtitle={`SKU ${item.sku} · ${item.unit}${item.categoryId && categoryNames[item.categoryId] ? ` · ${categoryNames[item.categoryId]}` : ''}`}
+              rightText={`$${Number(item.price).toFixed(2)}`}
               badgeLabel={item.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
               badgeTone={item.status === 'ACTIVE' ? 'success' : 'neutral'}
+              showChevron={canEdit}
+              onPress={
+                canEdit
+                  ? () => navigation.navigate('ProductForm', { productId: item._id })
+                  : undefined
+              }
             />
           </Card>
         )}
@@ -138,7 +178,7 @@ export function InventoryScreen(): React.JSX.Element {
     <View style={[styles.flex, { backgroundColor: palette.background }]}>
       <TopBar
         title="Inventario"
-        subtitle="Materiales y almacenes"
+        subtitle="Productos y catálogo"
         showBack
         onBack={() => navigation.goBack()}
         unreadAlerts={unreadAlertsCount()}
@@ -151,17 +191,23 @@ export function InventoryScreen(): React.JSX.Element {
           onChange={setQuery}
           placeholder="Buscar por nombre o SKU…"
         />
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: palette.brand }]}
-          onPress={() => navigation.navigate('ProductForm')}
-        >
-          <Text style={styles.addButtonText}>
-            + Nuevo producto
+        {canCreate ? (
+          <TouchableOpacity
+            style={[styles.addButton, { backgroundColor: palette.brand }]}
+            onPress={() => navigation.navigate('ProductForm', undefined)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.addButtonText}>
+              + Nuevo producto
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+        <ResultCount text={countText} />
+        {error && products.length > 0 ? (
+          <Text accessibilityRole="alert" style={[styles.inlineError, { color: palette.danger }]}>
+            {error}
           </Text>
-        </TouchableOpacity>
-        <ResultCount
-          text={`${filtered.length} de ${products.length} productos`}
-        />
+        ) : null}
         {renderContent()}
       </View>
     </View>
@@ -195,5 +241,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+
+  inlineError: {
+    fontSize: 13,
   },
 });

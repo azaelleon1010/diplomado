@@ -1,7 +1,7 @@
 /**
- * TramaTech ERP — Mobile (Fase 2: Mobile UI Foundation).
+ * TramaTech ERP — Mobile (Fase 3: API real).
  *
- * UI + navegación + datos mock. Sin API real todavía.
+ * Autenticación, sesión, permisos y módulos conectados a la API de producción.
  */
 import React from 'react';
 import { StatusBar } from 'react-native';

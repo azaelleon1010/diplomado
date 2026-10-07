@@ -59,3 +59,5 @@ export interface HealthResponse {
   timestamp: string;
   dependencies: Record<string, DependencyHealth>;
 }
+
+export * from './dashboard';

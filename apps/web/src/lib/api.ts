@@ -2,8 +2,14 @@
  * Minimal HTTP client for the TramaTech API (native fetch, no extra deps).
  * Base URL comes from VITE_API_URL, falling back to local dev.
  */
+import {
+  createInventoryApi,
+  type InventoryCategory,
+  type InventoryProduct,
+  type InventoryRequestClient,
+} from '../../../../packages/types/src/inventory';
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined ?? 'http://localhost:3000').replace(/\/$/, '');
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 export const SESSION_EXPIRED_EVENT = 'tramatech:session-expired';
 
 export interface ApiErrorBody {
@@ -14,6 +20,12 @@ export interface ApiErrorBody {
     fields: Record<string, unknown>;
   };
   traceId: string;
+}
+
+export interface ApiSuccessEnvelope<T> {
+  data: T;
+  meta?: Record<string, unknown>;
+  traceId?: string;
 }
 
 export class ApiClientError extends Error {
@@ -36,7 +48,7 @@ interface RequestOptions {
   token?: string;
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequestWithMeta<T>(path: string, options: RequestOptions = {}): Promise<ApiSuccessEnvelope<T>> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: options.method ?? 'GET',
     headers: {
@@ -75,7 +87,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw error;
   }
 
-  return (parsed as { data: T }).data;
+  return parsed as ApiSuccessEnvelope<T>;
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  return (await apiRequestWithMeta<T>(path, options)).data;
 }
 
 export interface AuthUser {
@@ -180,3 +196,14 @@ export function friendlyMessage(err: unknown): string {
   if (err instanceof Error) return 'No se pudo conectar con el servidor. Intenta de nuevo.';
   return 'Ocurrió un error inesperado.';
 }
+
+export type Product = InventoryProduct;
+export type Category = InventoryCategory;
+
+const inventoryClient: InventoryRequestClient = {
+  request: <T>(path: string, options: RequestOptions & { token: string }) => apiRequest<T>(path, options),
+  page: <T>(path: string, options: RequestOptions & { token: string }) => apiRequestWithMeta<T>(path, options),
+};
+
+/** Shared inventory contract (packages/types/src/inventory.ts), same as Mobile. */
+export const inventoryApi = createInventoryApi(inventoryClient);

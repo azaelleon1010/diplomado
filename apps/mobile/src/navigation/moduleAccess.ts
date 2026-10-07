@@ -20,6 +20,9 @@ export interface ModuleNavigationItem {
 export const MODULE_ACCESS = {
   inventoryRead: ['inventory.read'],
   inventoryWrite: ['inventory.create', 'inventory.update'],
+  inventoryCreate: ['inventory.create'],
+  inventoryUpdate: ['inventory.update'],
+  inventoryDelete: ['inventory.delete'],
   purchasingRead: ['purchasing.read'],
   purchasingWrite: ['purchasing.create', 'purchasing.update'],
   productionRead: ['production.read'],

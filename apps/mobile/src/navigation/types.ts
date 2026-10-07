@@ -20,7 +20,7 @@ export type MainTabParamList = {
 export type OperationsStackParamList = {
   OperationsHub: undefined;
   Inventory: undefined;
-  ProductForm: undefined;
+  ProductForm: { productId: string } | undefined;
   Maintenance: undefined;
   AssetForm: undefined;
   MaintenanceOrderForm: undefined;

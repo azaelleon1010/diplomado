@@ -16,7 +16,7 @@ import { EmptyState } from '../components/States';
 
 export function MoreScreen(): React.JSX.Element {
   const { palette } = useTheme();
-  const { userName, user, me, signOut } = useAuth();
+  const { userName, user, me, tenant, signOut } = useAuth();
   const navigation = useAppNavigation();
   const modules = getVisibleModules(me?.permissions ?? []);
   const moduleGroups = (['Operaciones', 'Personas', 'Finanzas'] as const)
@@ -44,9 +44,20 @@ export function MoreScreen(): React.JSX.Element {
               <Text style={[styles.profileRole, { color: palette.textSecondary }]}>
                 {user?.email ?? 'Correo no disponible'}
               </Text>
-              <Text style={[styles.profileRole, { color: palette.textSecondary }]}>
-                Tenant: {tenantId}
-              </Text>
+              {tenant ? (
+                <>
+                  <Text style={[styles.profileRole, { color: palette.textSecondary }]}>
+                    Empresa: {tenant.name}
+                  </Text>
+                  <Text style={[styles.profileRole, { color: palette.textSecondary }]}>
+                    Identificador de acceso: {tenant.slug}
+                  </Text>
+                </>
+              ) : (
+                <Text style={[styles.profileRole, { color: palette.textSecondary }]}>
+                  Tenant: {tenantId}
+                </Text>
+              )}
             </View>
           </View>
         </Card>

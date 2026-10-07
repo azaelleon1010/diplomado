@@ -7,12 +7,16 @@ import React, {
   useState,
 } from 'react';
 import {
+  ApiClientError,
   authApi,
   clearSession,
   friendlyMessage,
   loadSession,
+  loginWithCompany,
+  saveLastCompany,
   saveSession,
-  type AuthTokens,
+  sessionFromTokens,
+  type AuthTenant,
   type AuthUser,
   type MeResponse,
   type RegisterInput,
@@ -26,10 +30,14 @@ interface AuthContextValue {
   userName: string;
   user: AuthUser | null;
   me: MeResponse | null;
+  /** Company of the current session (name/slug for display only). */
+  tenant: AuthTenant | null;
   error: string | null;
 
-  signIn: (email: string, password: string) => Promise<void>;
-  register: (input: RegisterInput) => Promise<void>;
+  /** Same flow as Web: company slug → tenantId → login scoped to that tenant. */
+  signIn: (company: string, email: string, password: string) => Promise<void>;
+  /** Resolves with the new company so the UI can show its login identifier. */
+  register: (input: RegisterInput) => Promise<AuthTenant | null>;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
@@ -40,10 +48,11 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   userName: 'Operador',
   me: null,
+  tenant: null,
   error: null,
 
   signIn: async () => undefined,
-  register: async () => undefined,
+  register: async () => null,
   signOut: async () => undefined,
   clearError: () => undefined,
 });
@@ -52,13 +61,8 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
-function sessionFromTokens(tokens: AuthTokens): StoredSession {
-  return {
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
-    tenantId: tokens.tenantId,
-    sessionId: tokens.sessionId,
-  };
+function isAuthRejection(err: unknown): boolean {
+  return err instanceof ApiClientError && (err.status === 401 || err.status === 403);
 }
 
 export function AuthProvider({
@@ -67,69 +71,48 @@ export function AuthProvider({
   const [session, setSession] = useState<StoredSession | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
+  const [tenant, setTenant] = useState<AuthTenant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => subscribeToSessionExpiry(() => {
-    void clearSession().catch(() => undefined);
+  const resetState = useCallback(() => {
     setSession(null);
     setUser(null);
     setMe(null);
-    setError('Tu sesión expiró. Inicia sesión nuevamente.');
-  }), []);
-
-  const applyTokens = useCallback(async (tokens: AuthTokens) => {
-    const nextSession = sessionFromTokens(tokens);
-
-    await saveSession(nextSession);
-
-    setSession(nextSession);
-    setUser(tokens.user);
+    setTenant(null);
   }, []);
 
-  const loadCurrentUser = useCallback(
-    async (storedSession: StoredSession): Promise<boolean> => {
-      try {
-        const response = await authApi.me(storedSession.accessToken);
+  useEffect(() => subscribeToSessionExpiry(() => {
+    void clearSession().catch(() => undefined);
+    resetState();
+    setError('Tu sesión expiró. Inicia sesión nuevamente.');
+  }), [resetState]);
 
-        setSession(storedSession);
-        setUser(response.user);
-        setMe(response);
+  /**
+   * Persists the session, then loads /me (membership, roles, permissions)
+   * before flipping the navigator to the signed-in tree.
+   */
+  const activateSession = useCallback(async (next: StoredSession) => {
+    await saveSession(next);
 
-        return true;
-      } catch {
-        try {
-          const refreshed = await authApi.refresh(
-            storedSession.refreshToken,
-          );
+    if (next.tenant) {
+      await saveLastCompany(next.tenant.slug).catch(() => undefined);
+    }
 
-          const refreshedSession = sessionFromTokens(refreshed);
+    try {
+      const response = await authApi.me(next.accessToken);
+      // /me may have rotated the tokens through the 401 → refresh path.
+      const current = (await loadSession()) ?? next;
 
-          await saveSession(refreshedSession);
-
-          setSession(refreshedSession);
-          setUser(refreshed.user);
-
-          const response = await authApi.me(
-            refreshedSession.accessToken,
-          );
-
-          setMe(response);
-
-          return true;
-        } catch {
-          await clearSession();
-
-          setSession(null);
-          setUser(null);
-          setMe(null);
-
-          return false;
-        }
-      }
-    },
-    [],
-  );
+      setSession(current);
+      setTenant(current.tenant ?? null);
+      setUser(response.user);
+      setMe(response);
+    } catch (err) {
+      await clearSession().catch(() => undefined);
+      throw err;
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -138,21 +121,35 @@ export function AuthProvider({
       try {
         const storedSession = await loadSession();
 
+        if (!storedSession || !mounted) {
+          return;
+        }
+
+        // 401 → refresh → retry is handled centrally by apiRequest.
+        const response = await authApi.me(storedSession.accessToken);
+        const current = (await loadSession()) ?? storedSession;
+
         if (!mounted) {
           return;
         }
 
-        if (!storedSession) {
+        setSession(current);
+        setTenant(current.tenant ?? null);
+        setUser(response.user);
+        setMe(response);
+      } catch (err) {
+        if (!mounted) {
           return;
         }
 
-        await loadCurrentUser(storedSession);
-      } catch {
-        if (mounted) {
-          await clearSession();
-          setSession(null);
-          setUser(null);
-          setMe(null);
+        resetState();
+
+        if (isAuthRejection(err)) {
+          await clearSession().catch(() => undefined);
+        } else {
+          // Network/server failure (e.g. API cold start): keep the stored
+          // tokens so the next launch can restore without a new login.
+          setError(`No se pudo validar tu sesión. ${friendlyMessage(err)}`);
         }
       } finally {
         if (mounted) {
@@ -166,32 +163,29 @@ export function AuthProvider({
     return () => {
       mounted = false;
     };
-  }, [loadCurrentUser]);
+  }, [resetState]);
 
   const signIn = useCallback(
-    async (email: string, password: string): Promise<void> => {
+    async (company: string, email: string, password: string): Promise<void> => {
       setError(null);
 
       try {
-        const tokens = await authApi.login(email.trim(), password);
+        const { tokens, tenant: resolved } = await loginWithCompany(company, email, password);
 
-        await applyTokens(tokens);
-
-        const response = await authApi.me(tokens.accessToken);
-
-        setMe(response);
-        setUser(response.user);
+        await activateSession(sessionFromTokens(tokens, resolved));
       } catch (err) {
         setError(friendlyMessage(err));
         throw err;
       }
     },
-    [applyTokens],
+    [activateSession],
   );
 
   const register = useCallback(
-    async (input: RegisterInput): Promise<void> => {
+    async (input: RegisterInput): Promise<AuthTenant | null> => {
       setError(null);
+
+      let created: StoredSession | null = null;
 
       try {
         const tokens = await authApi.register({
@@ -199,52 +193,56 @@ export function AuthProvider({
           companyName: input.companyName.trim(),
           username: input.username.trim(),
           email: input.email.trim(),
-          firstName: input.firstName?.trim(),
-          lastName: input.lastName?.trim(),
+          firstName: input.firstName?.trim() || undefined,
+          lastName: input.lastName?.trim() || undefined,
         });
 
-        await applyTokens(tokens);
+        created = sessionFromTokens(tokens);
+        await activateSession(created);
 
-        const response = await authApi.me(tokens.accessToken);
-
-        setMe(response);
-        setUser(response.user);
+        return created.tenant ?? null;
       } catch (err) {
-        setError(friendlyMessage(err));
+        const slug = created?.tenant?.slug;
+
+        setError(
+          slug
+            ? `Tu empresa se registró con el identificador "${slug}", pero no se pudo abrir la sesión. Inicia sesión con ese identificador. (${friendlyMessage(err)})`
+            : friendlyMessage(err),
+        );
         throw err;
       }
     },
-    [applyTokens],
+    [activateSession],
   );
 
   const signOut = useCallback(async (): Promise<void> => {
-    const currentSession = session;
+    // Read storage, not state: the access token may have been rotated.
+    const stored = await loadSession().catch(() => null);
 
     setError(null);
     await clearSession().catch(() => undefined);
-    setSession(null);
-    setUser(null);
-    setMe(null);
+    resetState();
 
-    if (currentSession?.accessToken) {
-      void authApi.logout(currentSession.accessToken).catch(() => undefined);
+    if (stored?.accessToken) {
+      void authApi.logout(stored.accessToken).catch(() => undefined);
     }
-  }, [session]);
+  }, [resetState]);
 
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
   const value = useMemo<AuthContextValue>(
-  () => ({
-    signedIn: session !== null && user !== null,
-    loading,
-    userName:
-      user?.firstName ||
-      user?.username ||
-      'Operador',
+    () => ({
+      signedIn: session !== null && user !== null,
+      loading,
+      userName:
+        user?.firstName ||
+        user?.username ||
+        'Operador',
       user,
       me,
+      tenant,
       error,
       signIn,
       register,
@@ -256,6 +254,7 @@ export function AuthProvider({
       user,
       loading,
       me,
+      tenant,
       error,
       signIn,
       register,

@@ -258,10 +258,11 @@ export async function updateProduct(ctx: InventoryActor, id: string, input: Upda
   const { expectedVersion, ...fields } = input;
   const patch: UpdateProductData = {};
   if (fields.name !== undefined) patch.name = fields.name.trim();
-  if (fields.description !== undefined) patch.description = fields.description?.trim() || undefined;
+  // null (or blank description) clears the field; undefined leaves it untouched.
+  if (fields.description !== undefined) patch.description = fields.description?.trim() || null;
   if (fields.categoryId !== undefined) {
     if (fields.categoryId !== null) await assertCategoryUsable(deps, ctx.tenantId, fields.categoryId);
-    patch.categoryId = fields.categoryId ?? undefined;
+    patch.categoryId = fields.categoryId;
   }
   if (fields.unit !== undefined) patch.unit = fields.unit.trim();
   if (fields.barcode !== undefined) patch.barcode = fields.barcode?.trim() ? fields.barcode.trim() : null;
