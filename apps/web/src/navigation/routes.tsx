@@ -11,6 +11,7 @@ import { StockScreen } from '../screens/Stock';
 import { PurchasingScreen } from '../screens/Purchasing';
 import { ProductionScreen } from '../screens/Production';
 import { MaintenanceScreen } from '../screens/Maintenance';
+import { HrScreen } from '../screens/Hr';
 
 export const PUBLIC_ROUTES = ['/login', '/register'];
 
@@ -66,6 +67,8 @@ export function renderRoute(
   if (path === '/procurement/suppliers') return <PurchasingScreen initialTab="suppliers" />;
   if (path === '/operations/production') return <ProductionScreen />;
   if (path === '/operations/maintenance') return <MaintenanceScreen initialTab="orders" />;
+  if (path === '/people/employees') return <HrScreen initialTab="employees" />;
+  if (path === '/people/vacations') return <HrScreen initialTab="timeoff" />;
 
   const exactRoute = ROUTE_DEFINITIONS.find((route) => route.path === path);
   if (exactRoute) return <ModulePlaceholder moduleName={exactRoute.title} />;
