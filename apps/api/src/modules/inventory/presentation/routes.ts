@@ -10,8 +10,13 @@ import { PERMISSIONS } from '../../identity/domain/permissions';
 import { MongoAuditSink } from '../../identity/infrastructure/repositories';
 import { MongoCategoryStore, MongoProductStore, MongoWarehouseStore } from '../infrastructure/repositories';
 import { createInventoryController } from './controllers';
+import { createStockController } from './stockController';
+import type { StockDeps } from '../application/stock';
+import { MongoStockLedger } from '../infrastructure/stockRepository';
+import { MongoIdempotencyStore } from '../../../shared/idempotency';
 import {
   authenticate,
+  requireAnyPermission,
   requirePermission,
   requireTenant,
   type AuthMiddlewareDeps,
@@ -26,10 +31,21 @@ export function buildInventoryDeps(): InventoryDeps {
   };
 }
 
+export function buildStockDeps(inventory: InventoryDeps): StockDeps {
+  return {
+    ledger: new MongoStockLedger(),
+    products: inventory.products,
+    warehouses: inventory.warehouses,
+    idempotency: new MongoIdempotencyStore(),
+    audit: inventory.audit,
+  };
+}
+
 /** Mounted at /api/v1/inventory. */
-export function createInventoryRouter(deps: InventoryDeps, auth: AuthMiddlewareDeps) {
+export function createInventoryRouter(deps: InventoryDeps, auth: AuthMiddlewareDeps, stockDeps: StockDeps = buildStockDeps(deps)) {
   const router = Router();
   const controller = createInventoryController(deps);
+  const stock = createStockController(stockDeps);
   const guard = [authenticate(auth), requireTenant()];
   const read = requirePermission(auth, PERMISSIONS.INVENTORY_READ);
   const create = requirePermission(auth, PERMISSIONS.INVENTORY_CREATE);
@@ -53,6 +69,17 @@ export function createInventoryRouter(deps: InventoryDeps, auth: AuthMiddlewareD
   router.get('/warehouses/:id', ...guard, read, controller.getWarehouse);
   router.patch('/warehouses/:id', ...guard, update, controller.updateWarehouse);
   router.delete('/warehouses/:id', ...guard, remove, controller.deleteWarehouse);
+
+  // Ledger: balances are a projection of immutable movements.
+  router.get('/stock', ...guard, read, stock.listStock);
+  router.get('/movements', ...guard, read, stock.listMovements);
+  router.post(
+    '/movements',
+    ...guard,
+    requireAnyPermission(auth, [PERMISSIONS.INVENTORY_STOCK_IN, PERMISSIONS.INVENTORY_STOCK_OUT, PERMISSIONS.INVENTORY_STOCK_ADJUST]),
+    stock.postMovements,
+  );
+  router.post('/transfers', ...guard, requirePermission(auth, PERMISSIONS.INVENTORY_TRANSFER), stock.postTransfer);
 
   return router;
 }

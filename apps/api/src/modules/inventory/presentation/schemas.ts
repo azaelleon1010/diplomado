@@ -104,3 +104,66 @@ export const inventoryQuerySchema = z.object({
 export const idParamSchema = z.object({
   id: z.string().trim().min(1).max(120),
 });
+
+// ---------------------------------------------------------------------------
+// Inventory ledger (stock balances, movements, transfers)
+// ---------------------------------------------------------------------------
+
+const idRule = z.string().trim().min(1).max(120);
+const quantityRule = z.number().positive().max(1_000_000_000);
+const idempotencyKeyRule = z.string().trim().regex(/^[A-Za-z0-9._:-]{8,128}$/, 'idempotencyKey must be 8-128 chars: letters, digits, . _ : -');
+
+export const manualMovementTypeRule = z.enum(['RECEIPT', 'ISSUE', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT']);
+
+export const postMovementsSchema = z
+  .object({
+    lines: z
+      .array(
+        z
+          .object({
+            productId: idRule,
+            warehouseId: idRule,
+            type: manualMovementTypeRule,
+            quantity: quantityRule,
+            unitCost: z.number().finite().min(0).max(1_000_000_000).optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(100),
+    reference: z.string().trim().max(120).optional(),
+    notes: z.string().trim().max(500).optional(),
+    idempotencyKey: idempotencyKeyRule,
+  })
+  .strict();
+
+export const transferSchema = z
+  .object({
+    productId: idRule,
+    fromWarehouseId: idRule,
+    toWarehouseId: idRule,
+    quantity: quantityRule,
+    reference: z.string().trim().max(120).optional(),
+    notes: z.string().trim().max(500).optional(),
+    idempotencyKey: idempotencyKeyRule,
+  })
+  .strict();
+
+export const stockQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  productId: idRule.optional(),
+  warehouseId: idRule.optional(),
+  nonZero: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
+});
+
+export const movementQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  productId: idRule.optional(),
+  warehouseId: idRule.optional(),
+  type: z.enum(['RECEIPT', 'ISSUE', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT', 'TRANSFER_IN', 'TRANSFER_OUT']).optional(),
+  sourceType: z.string().trim().max(40).optional(),
+  sourceId: idRule.optional(),
+  postingId: idRule.optional(),
+});

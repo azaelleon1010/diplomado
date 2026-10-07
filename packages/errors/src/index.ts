@@ -11,6 +11,7 @@ export type ErrorCode =
   | 'CREDIT_LIMIT_EXCEEDED'
   | 'UNBALANCED_JOURNAL'
   | 'RATE_LIMITED'
+  | 'INSUFFICIENT_STOCK'
   | 'INTERNAL_ERROR';
 
 export class AppError extends Error {

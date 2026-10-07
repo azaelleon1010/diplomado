@@ -59,4 +59,5 @@ export const INVENTORY_ACTIONS = {
   WAREHOUSE_CREATED: 'inventory.warehouse.created',
   WAREHOUSE_UPDATED: 'inventory.warehouse.updated',
   WAREHOUSE_DEACTIVATED: 'inventory.warehouse.deactivated',
+  STOCK_POSTED: 'inventory.stock.posted',
 } as const;
