@@ -13,6 +13,7 @@ import { createPurchasingApi } from '../../../../packages/types/src/purchasing';
 import { createProductionApi } from '../../../../packages/types/src/production';
 import { createMaintenanceApi } from '../../../../packages/types/src/maintenance';
 import { createHrApi } from '../../../../packages/types/src/hr';
+import { createFinanceApi } from '../../../../packages/types/src/finance';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 export const SESSION_EXPIRED_EVENT = 'tramatech:session-expired';
@@ -233,3 +234,6 @@ export const maintenanceApi = createMaintenanceApi(inventoryClient);
 
 /** Shared HR contract (packages/types/src/hr.ts). */
 export const hrApi = createHrApi(inventoryClient);
+
+/** Shared finance contract (packages/types/src/finance.ts). */
+export const financeApi = createFinanceApi(inventoryClient);
