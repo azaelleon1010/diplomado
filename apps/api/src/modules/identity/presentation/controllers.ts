@@ -9,15 +9,18 @@ import {
   createUser,
   getMe,
   getUserById,
-  listUsers,
+  listUsersWithRoles,
   login,
   logout,
   refresh,
   register,
+  setUserStatus,
 } from '../application/usecases';
 import { requestPasswordReset, resetPassword, type PasswordResetDeps } from '../application/passwordReset';
+import { createRole, getRole, listRoles, updateRole, type RoleDeps } from '../application/roles';
 import {
   assignRoleSchema,
+  createRoleSchema,
   createUserSchema,
   forgotPasswordSchema,
   idParamSchema,
@@ -25,6 +28,8 @@ import {
   refreshSchema,
   registerSchema,
   resetPasswordSchema,
+  setUserStatusSchema,
+  updateRoleSchema,
   usersQuerySchema,
 } from './schemas';
 
@@ -152,7 +157,7 @@ export function createUsersController(deps: IdentityDeps) {
     async list(req: Request, res: Response, next: NextFunction): Promise<void> {
       try {
         const query = usersQuerySchema.parse(req.query);
-        const result = await listUsers(actorOf(req), query.page, query.limit, deps);
+        const result = await listUsersWithRoles(actorOf(req), query.page, query.limit, deps);
         ok(res, req, result.data, 200, {
           page: result.page,
           limit: result.limit,
@@ -197,6 +202,61 @@ export function createUsersController(deps: IdentityDeps) {
           roleIds: result.roleIds,
           status: result.status,
         });
+      } catch (err) {
+        next(err);
+      }
+    },
+
+    async setStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const params = idParamSchema.parse(req.params);
+        const dto = setUserStatusSchema.parse(req.body);
+        const result = await setUserStatus(actorOf(req), params.id, dto.status, deps);
+        ok(res, req, result);
+      } catch (err) {
+        next(err);
+      }
+    },
+  };
+}
+
+export function createRolesController(deps: RoleDeps) {
+  return {
+    async list(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const result = await listRoles(actorOf(req), deps);
+        ok(res, req, result);
+      } catch (err) {
+        next(err);
+      }
+    },
+
+    async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const params = idParamSchema.parse(req.params);
+        const result = await getRole(actorOf(req), params.id, deps);
+        ok(res, req, result);
+      } catch (err) {
+        next(err);
+      }
+    },
+
+    async create(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const dto = createRoleSchema.parse(req.body);
+        const result = await createRole(actorOf(req), dto, deps);
+        ok(res, req, result, 201);
+      } catch (err) {
+        next(err);
+      }
+    },
+
+    async update(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const params = idParamSchema.parse(req.params);
+        const dto = updateRoleSchema.parse(req.body);
+        const result = await updateRole(actorOf(req), params.id, dto, deps);
+        ok(res, req, result);
       } catch (err) {
         next(err);
       }

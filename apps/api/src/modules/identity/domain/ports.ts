@@ -88,6 +88,13 @@ export interface IPasswordResetStore {
   markUsed(resetId: string): Promise<void>;
 }
 
+export interface UpdateRoleData {
+  name?: string;
+  description?: string;
+  permissions?: string[];
+  status?: Role['status'];
+}
+
 export interface IRoleStore {
   findById(tenantId: string, id: string): Promise<Role | null>;
   findByIds(tenantId: string, ids: string[]): Promise<Role[]>;
@@ -95,6 +102,8 @@ export interface IRoleStore {
   create(data: { tenantId: string; name: string; description?: string; permissions: string[]; createdBy: string }, session?: TxSession): Promise<Role>;
   list(tenantId: string): Promise<Role[]>;
   setPermissions(tenantId: string, roleId: string, permissions: string[], updatedBy: string): Promise<Role | null>;
+  /** General, version-checked update for the HTTP-facing role editor (name/description/permissions/status). */
+  update(tenantId: string, roleId: string, patch: UpdateRoleData, expectedVersion: number, updatedBy: string): Promise<Role | null>;
 }
 
 /**
@@ -109,6 +118,8 @@ export interface ISystemRoleStore {
 export interface IMembershipStore {
   findByUserAndTenant(userId: string, tenantId: string): Promise<Membership | null>;
   findActiveByUser(userId: string): Promise<Membership[]>;
+  /** Every membership in the tenant — used to join users with their roles for the admin screen (one query, no N+1). */
+  findByTenant(tenantId: string): Promise<Membership[]>;
   create(data: { tenantId: string; organizationId?: string; branchId?: string; userId: string; roleIds: string[]; createdBy: string }, session?: TxSession): Promise<Membership>;
   setRoles(tenantId: string, membershipId: string, roleIds: string[], updatedBy: string): Promise<Membership | null>;
 }

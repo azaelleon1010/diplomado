@@ -13,7 +13,7 @@ import { BcryptHasher } from '../infrastructure/hasher';
 import { MongoAuditSink, MongoMembershipStore, MongoPasswordResetStore, MongoRoleStore, MongoSessionStore, MongoUserStore } from '../infrastructure/repositories';
 import { MongoTenantStore } from '../../tenant/infrastructure/repositories';
 import { JwtIssuer } from '../infrastructure/tokens';
-import { createAuthController, createUsersController } from './controllers';
+import { createAuthController, createRolesController, createUsersController } from './controllers';
 import { authenticate, requirePermission, requireTenant, type AuthMiddlewareDeps } from './middleware';
 import { ResendEmailProvider } from '../../notifications/infrastructure/resend';
 import type { IEmailProvider } from '../../notifications/domain/ports';
@@ -90,5 +90,26 @@ export function createUsersRouter(deps: RegisterDeps, auth: AuthMiddlewareDeps) 
   router.post('/', ...guard, requirePermission(auth, PERMISSIONS.SYSTEM_USERS_WRITE), controller.create);
   router.get('/:id', ...guard, requirePermission(auth, PERMISSIONS.SYSTEM_USERS_READ), controller.getById);
   router.post('/:id/roles', ...guard, requirePermission(auth, PERMISSIONS.SYSTEM_USERS_WRITE), controller.assignRoles);
+  router.patch('/:id/status', ...guard, requirePermission(auth, PERMISSIONS.SYSTEM_USERS_WRITE), controller.setStatus);
+  return router;
+}
+
+/**
+ * Role management (create/edit the permission sets accounts are assigned
+ * to — AGENTS.md §30, never a hardcoded admin/viewer split). Reuses
+ * system.users.read/write: role administration is part of the same
+ * "system/accounts" area as user management in the Web nav, and every
+ * tenant that could manage users already has these. Mounted at /api/v1/roles.
+ */
+export function createRolesRouter(deps: RegisterDeps, auth: AuthMiddlewareDeps) {
+  const router = Router();
+  const controller = createRolesController(deps);
+  const guard = [authenticate(auth), requireTenant()];
+  const read = requirePermission(auth, PERMISSIONS.SYSTEM_USERS_READ);
+  const write = requirePermission(auth, PERMISSIONS.SYSTEM_USERS_WRITE);
+  router.get('/', ...guard, read, controller.list);
+  router.post('/', ...guard, write, controller.create);
+  router.get('/:id', ...guard, read, controller.getById);
+  router.patch('/:id', ...guard, write, controller.update);
   return router;
 }

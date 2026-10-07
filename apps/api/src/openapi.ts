@@ -11,6 +11,7 @@ export const openApiSpec = {
     { name: 'system', description: 'System info' },
     { name: 'auth', description: 'Authentication (Phase 3A)' },
     { name: 'users', description: 'User administration (Phase 3A)' },
+    { name: 'roles', description: 'Role administration: granular permission sets, never admin/viewer flags' },
     { name: 'inventory', description: 'Inventory catalog: products, categories, warehouses (Phase 1)' },
     { name: 'maintenance', description: 'Maintenance: assets and maintenance orders (Phase 1)' },
     { name: 'production', description: 'Production orders reusing the inventory catalog (Phase 2)' },
@@ -102,9 +103,9 @@ export const openApiSpec = {
     '/users': {
       get: {
         tags: ['users'],
-        summary: 'List users in tenant (paginated)',
+        summary: 'List users in tenant (paginated), each enriched with their assigned roles',
         security: [{ bearerAuth: [] }],
-        responses: { '200': { description: 'User list' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.read' } },
+        responses: { '200': { description: 'User list (with roles[])' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.read' } },
       },
       post: {
         tags: ['users'],
@@ -127,6 +128,42 @@ export const openApiSpec = {
         summary: 'Assign roles to membership',
         security: [{ bearerAuth: [] }],
         responses: { '200': { description: 'Membership updated' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.write' }, '404': { description: 'Membership not found' } },
+      },
+    },
+    '/users/{id}/status': {
+      patch: {
+        tags: ['users'],
+        summary: 'Activate/deactivate a user account. Body: { status: ACTIVE|DISABLED }',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'User updated' }, '400': { description: 'Validation error' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.write, or attempting to deactivate yourself' }, '404': { description: 'Not found' } },
+      },
+    },
+    '/roles': {
+      get: {
+        tags: ['roles'],
+        summary: 'List roles in tenant',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Role list' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.read' } },
+      },
+      post: {
+        tags: ['roles'],
+        summary: 'Create a role with a granular permission set. Body: { name, description?, permissions: string[] }',
+        security: [{ bearerAuth: [] }],
+        responses: { '201': { description: 'Role created' }, '400': { description: 'Unknown permission in the set' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.write' }, '409': { description: 'Duplicate role name' } },
+      },
+    },
+    '/roles/{id}': {
+      get: {
+        tags: ['roles'],
+        summary: 'Get role by id (tenant-scoped)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Role' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.read' }, '404': { description: 'Not found' } },
+      },
+      patch: {
+        tags: ['roles'],
+        summary: 'Update name/description/permissions/status. Body: { name?, description?, permissions?, status?, expectedVersion }',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Role updated' }, '400': { description: 'Unknown permission in the set' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing system.users.write, or attempting to disable the owner role' }, '404': { description: 'Not found' }, '409': { description: 'Version conflict or duplicate name' } },
       },
     },
     '/inventory/categories': {

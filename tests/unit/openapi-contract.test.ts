@@ -7,7 +7,7 @@ const ROOT = join(__dirname, '..', '..', 'apps', 'api', 'src', 'modules');
 
 /** Router file → mount prefix(es) under /api/v1 (see apps/api/src/app.ts). */
 const ROUTERS: Array<{ file: string; mounts: Record<string, string> }> = [
-  { file: 'identity/presentation/routes.ts', mounts: { createAuthRouter: '/auth', createMeRouter: '', createUsersRouter: '/users' } },
+  { file: 'identity/presentation/routes.ts', mounts: { createAuthRouter: '/auth', createMeRouter: '', createUsersRouter: '/users', createRolesRouter: '/roles' } },
   { file: 'inventory/presentation/routes.ts', mounts: { createInventoryRouter: '/inventory' } },
   { file: 'maintenance/presentation/routes.ts', mounts: { createMaintenanceRouter: '/maintenance' } },
   { file: 'production/presentation/routes.ts', mounts: { createProductionRouter: '/production' } },

@@ -12,6 +12,7 @@ import {
   buildIdentityDeps,
   createAuthRouter,
   createMeRouter,
+  createRolesRouter,
   createUsersRouter,
 } from './modules/identity/presentation/routes';
 import type { PasswordResetDeps } from './modules/identity/application/passwordReset';
@@ -60,6 +61,7 @@ export function createApp(identityDeps?: PasswordResetDeps) {
   app.use('/api/v1/auth', createAuthRouter(resolvedIdentityDeps, authMiddleware));
   app.use('/api/v1', createMeRouter(resolvedIdentityDeps, authMiddleware));
   app.use('/api/v1/users', createUsersRouter(resolvedIdentityDeps, authMiddleware));
+  app.use('/api/v1/roles', createRolesRouter(resolvedIdentityDeps, authMiddleware));
 
   // Inventory (Phase 1): products, categories, warehouses, stock, movements
   const inventoryDeps = buildInventoryDeps();

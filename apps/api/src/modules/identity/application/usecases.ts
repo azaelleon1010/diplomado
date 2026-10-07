@@ -329,10 +329,60 @@ export async function listUsers(ctx: ActorContext, page: number, limit: number, 
   return { data: result.data.map(toSafeUser), total: result.total, page: result.page, limit: result.limit, totalPages: result.totalPages };
 }
 
+export interface UserWithRoles extends ReturnType<typeof toSafeUser> {
+  membershipStatus: 'ACTIVE' | 'DISABLED' | null;
+  roles: Array<{ _id: string; name: string }>;
+}
+
+/**
+ * Same as listUsers, enriched with each user's roles (joined from
+ * memberships in one extra query — no N+1) for the account-management
+ * screen, which must show who can only view vs who can edit.
+ */
+export async function listUsersWithRoles(ctx: ActorContext, page: number, limit: number, deps: IdentityDeps): Promise<{ data: UserWithRoles[]; total: number; page: number; limit: number; totalPages: number }> {
+  const result = await listUsers(ctx, page, limit, deps);
+  const memberships = await deps.memberships.findByTenant(ctx.tenantId);
+  const membershipByUser = new Map(memberships.map((m) => [m.userId, m]));
+  const allRoleIds = [...new Set(memberships.flatMap((m) => m.roleIds))];
+  const roles = await deps.roles.findByIds(ctx.tenantId, allRoleIds);
+  const roleById = new Map(roles.map((r) => [r._id, r]));
+
+  const data: UserWithRoles[] = result.data.map((user) => {
+    const membership = membershipByUser.get(user._id);
+    const userRoles = (membership?.roleIds ?? []).flatMap((rid) => {
+      const role = roleById.get(rid);
+      return role ? [{ _id: role._id, name: role.name }] : [];
+    });
+    return { ...user, membershipStatus: membership?.status ?? null, roles: userRoles };
+  });
+
+  return { ...result, data };
+}
+
 export async function getUserById(ctx: ActorContext, id: string, deps: IdentityDeps) {
   const user = await deps.users.findById(ctx.tenantId, id);
   if (!user) throw new AppError({ code: 'NOT_FOUND', message: 'User not found', statusCode: 404 });
   return toSafeUser(user);
+}
+
+/** Deactivates/reactivates a user's account. A user cannot disable themself (avoids a self-lockout with no recovery path). */
+export async function setUserStatus(ctx: ActorContext, id: string, status: User['status'], deps: IdentityDeps) {
+  if (id === ctx.userId && status === 'DISABLED') {
+    throw forbidden('You cannot deactivate your own account');
+  }
+  const updated = await deps.users.setStatus(ctx.tenantId, id, status, ctx.userId);
+  if (!updated) throw new AppError({ code: 'NOT_FOUND', message: 'User not found', statusCode: 404 });
+  await audit(deps, {
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    action: AUTH_ACTIONS.USER_STATUS_CHANGED,
+    entityType: 'user',
+    entityId: id,
+    result: 'SUCCESS',
+    correlationId: ctx.correlationId,
+    after: { status },
+  });
+  return toSafeUser(updated);
 }
 
 export interface RegisterInput {

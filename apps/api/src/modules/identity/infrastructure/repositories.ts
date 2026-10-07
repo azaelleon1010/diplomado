@@ -19,6 +19,7 @@ import type {
   IUserStore,
   TxSession,
   CreateUserData,
+  UpdateRoleData,
 } from '../domain/ports';
 import type { Membership, PasswordResetToken, RefreshSession, Role, UserWithCredentials, User } from '../domain/entities';
 import {
@@ -263,6 +264,18 @@ export class MongoRoleStore implements IRoleStore, ISystemRoleStore {
     const updated = await this.base.updateById(roleId, { permissions: [...permissions] }, { tenantId, userId: updatedBy }, current.version);
     return toRole(updated);
   }
+
+  async update(tenantId: string, roleId: string, patch: UpdateRoleData, expectedVersion: number, updatedBy: string): Promise<Role | null> {
+    const current = await this.base.findById(roleId, { tenantId, userId: updatedBy });
+    if (!current) return null;
+    const set: Record<string, unknown> = {};
+    if (patch.name !== undefined) set.name = patch.name;
+    if (patch.description !== undefined) set.description = patch.description;
+    if (patch.permissions !== undefined) set.permissions = [...patch.permissions];
+    if (patch.status !== undefined) set.status = patch.status;
+    const updated = await this.base.updateById(roleId, set, { tenantId, userId: updatedBy }, expectedVersion);
+    return toRole(updated);
+  }
 }
 
 export class MongoMembershipStore implements IMembershipStore {
@@ -280,6 +293,15 @@ export class MongoMembershipStore implements IMembershipStore {
   async findActiveByUser(userId: string): Promise<Membership[]> {
     try {
       const docs = await MembershipModel.find({ userId, status: 'ACTIVE' }).exec();
+      return docs.map(toMembership);
+    } catch (err) {
+      throw mapMongoError(err);
+    }
+  }
+
+  async findByTenant(tenantId: string): Promise<Membership[]> {
+    try {
+      const docs = await MembershipModel.find({ tenantId }).exec();
       return docs.map(toMembership);
     } catch (err) {
       throw mapMongoError(err);

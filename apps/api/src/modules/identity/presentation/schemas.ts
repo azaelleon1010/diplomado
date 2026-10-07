@@ -92,3 +92,37 @@ export const usersQuerySchema = z.object({
 export const idParamSchema = z.object({
   id: z.string().trim().min(1).max(120),
 });
+
+export const setUserStatusSchema = z
+  .object({
+    status: z.enum(['ACTIVE', 'DISABLED']),
+  })
+  .strict();
+
+export type SetUserStatusDto = z.infer<typeof setUserStatusSchema>;
+
+const permissionRule = z.string().trim().min(1).max(60);
+
+export const createRoleSchema = z
+  .object({
+    name: z.string().trim().min(2).max(64),
+    description: z.string().trim().max(280).optional(),
+    permissions: z.array(permissionRule).max(200).default([]),
+  })
+  .strict();
+
+export type CreateRoleDto = z.infer<typeof createRoleSchema>;
+
+export const updateRoleSchema = z
+  .object({
+    name: z.string().trim().min(2).max(64).optional(),
+    description: z.string().trim().max(280).optional(),
+    permissions: z.array(permissionRule).max(200).optional(),
+    status: z.enum(['ACTIVE', 'DISABLED']).optional(),
+    // NOTE: versions are 0-based at runtime (Mongoose optimisticConcurrency
+    // manages versionKey starting at 0), so 0 must be accepted here.
+    expectedVersion: z.number().int().min(0),
+  })
+  .strict();
+
+export type UpdateRoleDto = z.infer<typeof updateRoleSchema>;

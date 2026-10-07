@@ -94,6 +94,9 @@ export const AUTH_ACTIONS = {
   USER_CREATED: 'users.created',
   ROLE_ASSIGNED: 'memberships.roleAssigned',
   ROLE_PERMISSIONS_SYNCED: 'roles.permissionsSynced',
+  ROLE_CREATED: 'roles.created',
+  ROLE_UPDATED: 'roles.updated',
+  USER_STATUS_CHANGED: 'users.statusChanged',
   PASSWORD_RESET_REQUESTED: 'auth.passwordReset.requested',
   PASSWORD_RESET_SUCCESS: 'auth.passwordReset.success',
 } as const;

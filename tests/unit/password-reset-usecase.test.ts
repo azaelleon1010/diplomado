@@ -79,11 +79,13 @@ function makeStores() {
     create: async () => { throw new Error('not used'); },
     list: async () => [],
     setPermissions: async () => null,
+    update: async () => null,
   };
 
   const membershipStore: IMembershipStore = {
     findByUserAndTenant: async () => null,
     findActiveByUser: async () => [],
+    findByTenant: async () => [],
     create: async () => { throw new Error('not used'); },
     setRoles: async () => null,
   };

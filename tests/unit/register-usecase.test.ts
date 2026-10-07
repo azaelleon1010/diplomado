@@ -79,11 +79,19 @@ function makeStores() {
       roles.set(roleId, next);
       return next;
     },
+    update: async (tenantId, roleId, patch, expectedVersion) => {
+      const r = roles.get(roleId);
+      if (!r || r.tenantId !== tenantId || r.version !== expectedVersion) return null;
+      const next = { ...r, ...patch, version: r.version + 1 };
+      roles.set(roleId, next);
+      return next;
+    },
   };
 
   const membershipStore: IMembershipStore = {
     findByUserAndTenant: async (userId, tenantId) => memberships.find((m) => m.userId === userId && m.tenantId === tenantId) ?? null,
     findActiveByUser: async () => [],
+    findByTenant: async (tenantId) => memberships.filter((m) => m.tenantId === tenantId),
     create: async (data) => {
       const m: Membership = {
         _id: id('mem'), tenantId: data.tenantId, organizationId: data.organizationId, branchId: data.branchId,

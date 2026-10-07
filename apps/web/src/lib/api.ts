@@ -14,6 +14,7 @@ import { createProductionApi } from '../../../../packages/types/src/production';
 import { createMaintenanceApi } from '../../../../packages/types/src/maintenance';
 import { createHrApi } from '../../../../packages/types/src/hr';
 import { createFinanceApi } from '../../../../packages/types/src/finance';
+import { createAdminApi } from '../../../../packages/types/src/admin';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 export const SESSION_EXPIRED_EVENT = 'tramatech:session-expired';
@@ -270,3 +271,6 @@ export const hrApi = createHrApi(inventoryClient);
 
 /** Shared finance contract (packages/types/src/finance.ts). */
 export const financeApi = createFinanceApi(inventoryClient);
+
+/** Shared administration contract: roles and user accounts (packages/types/src/admin.ts). */
+export const adminApi = createAdminApi(inventoryClient);

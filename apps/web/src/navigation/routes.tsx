@@ -15,6 +15,7 @@ import { ProductionScreen } from '../screens/Production';
 import { MaintenanceScreen } from '../screens/Maintenance';
 import { HrScreen } from '../screens/Hr';
 import { FinanceScreen } from '../screens/Finance';
+import { AdministrationScreen } from '../screens/Administration';
 
 export function useNavigation() {
   const [path, setPath] = useState(() => window.location.pathname || '/dashboard');
@@ -73,6 +74,7 @@ export function renderRoute(
   if (path === '/people/employees') return <HrScreen initialTab="employees" />;
   if (path === '/people/vacations') return <HrScreen initialTab="timeoff" />;
   if (path === '/finance/accounting') return <FinanceScreen />;
+  if (path === '/administration') return <AdministrationScreen />;
 
   const exactRoute = ROUTE_DEFINITIONS.find((route) => route.path === path);
   if (exactRoute) return <ModulePlaceholder moduleName={exactRoute.title} />;
