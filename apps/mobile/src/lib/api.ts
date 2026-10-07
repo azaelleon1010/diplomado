@@ -11,7 +11,7 @@ import {
  * Same backend as the Web client. For a local API from the Android emulator
  * use 'http://10.0.2.2:3000' (debug builds only; release requires HTTPS).
  */
-export const API_BASE_URL = 'https://diplomado-slgd.onrender.com';
+export const API_BASE_URL = 'https://diplomado-1.onrender.com';
 const API_BASE = API_BASE_URL;
 
 export interface ApiErrorBody {
