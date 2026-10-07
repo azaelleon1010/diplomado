@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native-web';
-import { useTheme } from '../theme/Theme';
 
 interface AssistantInputProps {
   onSend: (message: string) => void;
@@ -9,7 +8,6 @@ interface AssistantInputProps {
 
 export function AssistantInput({ onSend, disabled }: AssistantInputProps) {
   const [message, setMessage] = useState('');
-  const t = useTheme();
 
   const handleSend = useCallback(() => {
     if (!message.trim() || disabled) return;

@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native-web';
-import { useTheme } from '../theme/Theme';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -8,7 +7,6 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ role, content }: ChatMessageProps) {
-  const t = useTheme();
   const isUser = role === 'user';
 
   return (

@@ -25,7 +25,6 @@ let adminAccessB = '';
 let accountIdA = '';
 let categoryIdA = '';
 let movementIdA = '';
-let movementVersionA = 0;
 
 describe('Finance integration: accounts + categories + movements + isolation + permissions + audit', () => {
   const testEmailProvider: IEmailProvider = {
@@ -128,7 +127,6 @@ describe('Finance integration: accounts + categories + movements + isolation + p
     expect(movement.body.data.status).toBe('POSTED');
     expect(JSON.stringify(movement.body)).not.toContain('passwordHash');
     movementIdA = movement.body.data._id as string;
-    movementVersionA = movement.body.data.version as number;
 
     const totals = await request(app).get('/api/v1/finance/movements/totals').set('Authorization', `Bearer ${adminAccessA}`);
     expect(totals.status).toBe(200);

@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRoute, type RouteProp } from '@react-navigation/native';
 import { useTheme } from '../theme/Theme';
-import { radii, spacing, typography } from '../theme/tokens';
+import { spacing, typography } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { useAppNavigation } from '../hooks/useAppNavigation';
 import { TopBar } from '../components/TopBar';
@@ -11,7 +11,7 @@ import { StatusBadge, type BadgeTone } from '../components/StatusBadge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ListItem } from '../components/ListItem';
-import { EmptyState, ErrorState, LoadingState } from '../components/States';
+import { ErrorState, LoadingState } from '../components/States';
 import { pushAlert, unreadAlertsCount } from '../data/alerts';
 import {
   friendlyMessage,

@@ -5,7 +5,6 @@ import {
   createEmployee,
   createTimeOff,
   deactivateDepartment,
-  deactivateEmployee,
   decideTimeOff,
   getTimeOff,
   listTimeOff,

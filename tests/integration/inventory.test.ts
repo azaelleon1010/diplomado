@@ -25,7 +25,6 @@ let adminAccessB = '';
 let categoryIdA = '';
 let productIdA = '';
 let productVersionA = 1;
-let warehouseIdA = '';
 let productIdB = '';
 
 async function registerCompany(companyName: string, email: string) {
@@ -132,7 +131,6 @@ describe('Inventory integration: catalog + isolation + permissions + audit', () 
       .send({ code: 'alm-mx-01', name: 'Principal' });
     expect(warehouse.status).toBe(201);
     expect(warehouse.body.data.code).toBe('ALM-MX-01');
-    warehouseIdA = warehouse.body.data._id as string;
 
     const product = await request(app)
       .post('/api/v1/inventory/products')

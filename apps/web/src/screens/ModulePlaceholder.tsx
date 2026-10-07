@@ -1,13 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native-web';
-import { useTheme } from '../theme/Theme';
 
 interface ModulePlaceholderProps {
   moduleName: string;
 }
 
 export function ModulePlaceholder({ moduleName }: ModulePlaceholderProps) {
-  const t = useTheme();
 
   return (
     <View style={styles.container}>

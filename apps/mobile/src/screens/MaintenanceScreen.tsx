@@ -11,7 +11,7 @@ import { ListItem } from '../components/ListItem';
 import { Card } from '../components/Card';
 import { Chip } from '../components/Chip';
 import { EmptyState, ErrorState, LoadingState } from '../components/States';
-import { StatusBadge, type BadgeTone } from '../components/StatusBadge';
+import type { BadgeTone } from '../components/StatusBadge';
 import { unreadAlertsCount } from '../data/alerts';
 import {
   friendlyMessage,

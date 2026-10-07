@@ -26,7 +26,7 @@ module.exports = [
     },
   },
   {
-    files: ['eslint.config.js', 'scripts/**/*.js'],
+    files: ['eslint.config.js', 'scripts/**/*.js', 'apps/mobile/*.config.js'],
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
 ];

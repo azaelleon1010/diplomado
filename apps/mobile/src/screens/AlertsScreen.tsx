@@ -38,7 +38,7 @@ export function AlertsScreen(): React.JSX.Element {
 
   const filtered = useMemo(
     () => alertsStore.filter((a) => filter === 'all' || a.category === filter),
-    [filter, version], // eslint-disable-line react-hooks/exhaustive-deps
+    [filter, version],
   );
   const unread = unreadAlertsCount();
 

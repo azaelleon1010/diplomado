@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native-web';
-import { useTheme } from '../theme/Theme';
 import { ChatMessage } from './ChatMessage';
 import { AssistantInput } from './AssistantInput';
 

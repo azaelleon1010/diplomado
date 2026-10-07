@@ -48,7 +48,6 @@ export function EmployeeFormScreen(): React.JSX.Element {
 
   useEffect(() => {
     void loadCatalogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadCatalogs(): Promise<void> {

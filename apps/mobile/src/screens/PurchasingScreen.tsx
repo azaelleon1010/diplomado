@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../theme/Theme';
-import { radii, spacing, typography } from '../theme/tokens';
+import { spacing, typography } from '../theme/tokens';
 import { useAuth } from '../auth/AuthContext';
 import { useAppNavigation } from '../hooks/useAppNavigation';
 import { TopBar } from '../components/TopBar';
