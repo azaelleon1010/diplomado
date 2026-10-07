@@ -11,6 +11,8 @@ import type { RequestDeps } from '../application/requests';
 import { MongoPurchaseRequestStore } from '../infrastructure/requestRepository';
 import { createQuoteController, createRequestController } from './requestController';
 import { MongoSupplierQuoteStore } from '../infrastructure/quoteRepository';
+import { MongoSupplierInvoiceStore } from '../infrastructure/invoiceRepository';
+import { createInvoiceController } from './invoiceController';
 import type { InventoryDeps } from '../../inventory/application/usecases';
 import { buildInventoryDeps, buildStockDeps } from '../../inventory/presentation/routes';
 import { MongoGoodsReceiptStore } from '../infrastructure/receiptRepository';
@@ -23,6 +25,7 @@ import { MongoPurchaseOrderStore, MongoSupplierStore } from '../infrastructure/r
 import { createPurchasingController, createReceiptController } from './controllers';
 import {
   authenticate,
+  requireAnyPermission,
   requirePermission,
   requireTenant,
   type AuthMiddlewareDeps,
@@ -72,6 +75,14 @@ export function createPurchasingRouter(
   const receipts = createReceiptController(receiptDeps);
   const requests = createRequestController(requestDeps);
   const quotes = createQuoteController({ ...requestDeps, quotes: new MongoSupplierQuoteStore() });
+  const invoices = createInvoiceController({
+    invoices: new MongoSupplierInvoiceStore(),
+    orders: deps.orders,
+    suppliers: deps.suppliers,
+    sequences: new MongoSequenceStore(),
+    idempotency: new MongoIdempotencyStore(),
+    audit: deps.audit,
+  });
   const guard = [authenticate(auth), requireTenant()];
   const read = requirePermission(auth, PERMISSIONS.PURCHASING_READ);
   const create = requirePermission(auth, PERMISSIONS.PURCHASING_CREATE);
@@ -118,6 +129,16 @@ export function createPurchasingRouter(
   router.get('/requests/:id/quotes', ...guard, read, quotes.compare);
   router.post('/requests/:id/quotes', ...guard, create, quotes.create);
   router.post('/quotes/:id/award', ...guard, approve, quotes.award);
+
+  // Supplier invoices / accounts payable (three-way match). AP is a finance
+  // responsibility: registering, releasing and cancelling use finance.*.
+  const apRead = requireAnyPermission(auth, [PERMISSIONS.PURCHASING_READ, PERMISSIONS.FINANCE_READ]);
+  router.get('/invoices', ...guard, apRead, invoices.list);
+  router.post('/invoices', ...guard, requirePermission(auth, PERMISSIONS.FINANCE_CREATE), invoices.register);
+  router.get('/invoices/:id', ...guard, apRead, invoices.get);
+  router.post('/invoices/:id/release', ...guard, requirePermission(auth, PERMISSIONS.FINANCE_APPROVE), invoices.release);
+  router.post('/invoices/:id/cancel', ...guard, requirePermission(auth, PERMISSIONS.FINANCE_UPDATE), invoices.cancel);
+  router.get('/payables', ...guard, apRead, invoices.payables);
 
   return router;
 }

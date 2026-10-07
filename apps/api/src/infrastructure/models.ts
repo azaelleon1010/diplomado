@@ -8,6 +8,7 @@ import { sequenceModels } from '../shared/sequence';
 import { receiptModels } from '../modules/purchasing/infrastructure/receiptRepository';
 import { requestModels } from '../modules/purchasing/infrastructure/requestRepository';
 import { quoteModels } from '../modules/purchasing/infrastructure/quoteRepository';
+import { invoiceModels } from '../modules/purchasing/infrastructure/invoiceRepository';
 import { maintenanceModels } from '../modules/maintenance/infrastructure/models';
 import { productionModels } from '../modules/production/infrastructure/models';
 import { purchasingModels } from '../modules/purchasing/infrastructure/models';
@@ -27,6 +28,7 @@ export const applicationModels: Model<unknown>[] = [
   ...receiptModels,
   ...requestModels,
   ...quoteModels,
+  ...invoiceModels,
   ...hrModels,
   ...financeModels,
 ];

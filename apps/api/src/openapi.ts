@@ -547,6 +547,59 @@ export const openApiSpec = {
         responses: { '201': { description: '{ quote, order, request }' }, '400': { description: 'Request not approved or quote incomplete' }, '403': { description: 'Missing purchasing.approve' }, '409': { description: 'Version conflict' } },
       },
     },
+    '/purchasing/invoices': {
+      get: {
+        tags: ['purchasing'],
+        summary: 'List supplier invoices (filters: supplierId, purchaseOrderId, status, open=true)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Invoices (paginated, by due date)' }, '403': { description: 'Missing purchasing.read or finance.read' } },
+      },
+      post: {
+        tags: ['purchasing'],
+        summary: 'Register a supplier invoice with three-way match (FAP-000001). Quantity <= received - invoiced (hard rule); price variance > 0.5% => ON_HOLD. Due date = invoiceDate + supplier paymentTermsDays. Body: { purchaseOrderId, supplierInvoiceNumber, invoiceDate, taxRate?, notes?, lines[{productId, quantity, unitCost}], idempotencyKey }',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '201': { description: '{ invoice, replayed:false } (status POSTED or ON_HOLD with matchIssues)' },
+          '200': { description: 'Idempotent replay' },
+          '400': { description: 'Three-way match failed or invalid data' },
+          '403': { description: 'Missing finance.create' },
+          '404': { description: 'Purchase order not found' },
+          '409': { description: 'Duplicate supplier invoice number, IDEMPOTENCY_CONFLICT or concurrent update' },
+        },
+      },
+    },
+    '/purchasing/invoices/{id}': {
+      get: {
+        tags: ['purchasing'],
+        summary: 'Get supplier invoice (tenant-scoped)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Invoice' }, '403': { description: 'Missing purchasing.read or finance.read' }, '404': { description: 'Not found' } },
+      },
+    },
+    '/purchasing/invoices/{id}/release': {
+      post: {
+        tags: ['purchasing'],
+        summary: 'Release an ON_HOLD invoice (price variance accepted) => POSTED. Body: { expectedVersion }',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Released (releasedBy/At recorded)' }, '400': { description: 'Not on hold' }, '403': { description: 'Missing finance.approve' }, '409': { description: 'Version conflict' } },
+      },
+    },
+    '/purchasing/invoices/{id}/cancel': {
+      post: {
+        tags: ['purchasing'],
+        summary: 'Cancel an unpaid invoice and return its billed quantities to the order. Body: { reason, expectedVersion }',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Cancelled' }, '400': { description: 'Paid or not cancellable' }, '403': { description: 'Missing finance.update' }, '409': { description: 'Version conflict' } },
+      },
+    },
+    '/purchasing/payables': {
+      get: {
+        tags: ['purchasing'],
+        summary: 'Accounts payable summary: open and overdue balances per currency and supplier with aging buckets (current, 1-30, 31-60, 61-90, 90+)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Summary' }, '403': { description: 'Missing purchasing.read or finance.read' } },
+      },
+    },
     '/purchasing/receipts': {
       get: {
         tags: ['purchasing'],

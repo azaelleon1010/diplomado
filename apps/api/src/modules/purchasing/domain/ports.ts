@@ -78,6 +78,8 @@ export interface IPurchaseOrderStore {
    * Adds received quantities (deltas by productId) and sets the derived
    * status, guarded by expectedVersion. Used only by goods receipts.
    */
+  /** Adds (or with negative values returns) invoiced quantities, version-guarded. */
+  applyInvoice(tenantId: string, id: string, invoicedDelta: Record<string, number>, expectedVersion: number, updatedBy: string, session: TxSession): Promise<PurchaseOrder | null>;
   applyReceipt(tenantId: string, id: string, receivedDelta: Record<string, number>, status: PurchaseOrderStatus, expectedVersion: number, updatedBy: string, session: TxSession): Promise<PurchaseOrder | null>;
   transition(tenantId: string, id: string, to: PurchaseOrderStatus, expectedVersion: number, updatedBy: string, extra?: { lines?: PurchaseOrderLine[] }, session?: TxSession): Promise<PurchaseOrder | null>;
 }

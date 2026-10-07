@@ -60,8 +60,8 @@ function toSupplier(doc: SupplierDoc): Supplier {
   };
 }
 
-function toLine(m: { productId: string; quantity: number; unitCost: number; quantityReceived: number }): PurchaseOrderLine {
-  return { productId: m.productId, quantity: m.quantity, unitCost: m.unitCost, quantityReceived: m.quantityReceived };
+function toLine(m: { productId: string; quantity: number; unitCost: number; quantityReceived: number; quantityInvoiced?: number }): PurchaseOrderLine {
+  return { productId: m.productId, quantity: m.quantity, unitCost: m.unitCost, quantityReceived: m.quantityReceived, quantityInvoiced: m.quantityInvoiced ?? 0 };
 }
 
 function toOrder(doc: PurchaseOrderDoc): PurchaseOrder {
@@ -253,7 +253,7 @@ export class MongoPurchaseOrderStore implements IPurchaseOrderStore {
         status: 'DRAFT',
         expectedDate: data.expectedDate,
         notes: data.notes,
-        lines: data.lines.map((l) => ({ productId: l.productId, quantity: l.quantity, unitCost: l.unitCost, quantityReceived: 0 })),
+        lines: data.lines.map((l) => ({ productId: l.productId, quantity: l.quantity, unitCost: l.unitCost, quantityReceived: 0, quantityInvoiced: 0 })),
         subtotal,
         requestId: data.requestId,
       }),
@@ -302,6 +302,34 @@ export class MongoPurchaseOrderStore implements IPurchaseOrderStore {
     }
   }
 
+  async applyInvoice(tenantId: string, id: string, invoicedDelta: Record<string, number>, expectedVersion: number, updatedBy: string, session: TxSession): Promise<PurchaseOrder | null> {
+    const s = asSession(session);
+    try {
+      const currentQ = PurchaseOrderModel.findOne({ tenantId, _id: id });
+      if (s) currentQ.session(s);
+      const current = await currentQ.exec();
+      if (!current) return null;
+      const lines = current.lines.map((line) => ({
+        productId: line.productId,
+        quantity: line.quantity,
+        unitCost: line.unitCost,
+        quantityReceived: line.quantityReceived ?? 0,
+        quantityInvoiced: Math.max(0, Math.round(((line.quantityInvoiced ?? 0) + (invoicedDelta[line.productId] ?? 0)) * 1000) / 1000),
+      }));
+      const q = PurchaseOrderModel.findOneAndUpdate(
+        { tenantId, _id: id, version: expectedVersion },
+        { $set: { lines, updatedBy, updatedAt: new Date() }, $inc: { version: 1 } },
+        { new: true, runValidators: true },
+      );
+      if (s) q.session(s);
+      const updated = await q.exec();
+      if (!updated) throw mapMongoError(Object.assign(new Error('Version conflict'), { name: 'VersionError' }));
+      return toOrder(updated);
+    } catch (err) {
+      throw mapMongoError(err);
+    }
+  }
+
   async applyReceipt(tenantId: string, id: string, receivedDelta: Record<string, number>, status: PurchaseOrderStatus, expectedVersion: number, updatedBy: string, session: TxSession): Promise<PurchaseOrder | null> {
     const s = asSession(session);
     try {
@@ -314,6 +342,7 @@ export class MongoPurchaseOrderStore implements IPurchaseOrderStore {
         quantity: line.quantity,
         unitCost: line.unitCost,
         quantityReceived: Math.round(((line.quantityReceived ?? 0) + (receivedDelta[line.productId] ?? 0)) * 1000) / 1000,
+        quantityInvoiced: line.quantityInvoiced ?? 0,
       }));
       const q = PurchaseOrderModel.findOneAndUpdate(
         { tenantId, _id: id, version: expectedVersion },

@@ -49,6 +49,8 @@ export interface PurchaseOrderLine {
   quantity: number;
   unitCost: number;
   quantityReceived: number;
+  /** Quantity already billed by supplier invoices (three-way match). */
+  quantityInvoiced: number;
 }
 
 export interface PurchaseOrder {
@@ -91,5 +93,9 @@ export const PURCHASING_ACTIONS = {
   REQUEST_ORDERED: 'purchasing.request.ordered',
   QUOTE_RECEIVED: 'purchasing.quote.received',
   QUOTE_AWARDED: 'purchasing.quote.awarded',
+  INVOICE_POSTED: 'purchasing.invoice.posted',
+  INVOICE_HELD: 'purchasing.invoice.held',
+  INVOICE_RELEASED: 'purchasing.invoice.released',
+  INVOICE_CANCELLED: 'purchasing.invoice.cancelled',
   RECEIPT_POSTED: 'purchasing.receipt.posted',
 } as const;

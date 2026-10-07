@@ -228,6 +228,48 @@ export const awardQuoteSchema = z
   })
   .strict();
 
+const isoDateRule = z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD');
+
+export const registerInvoiceSchema = z
+  .object({
+    purchaseOrderId: z.string().trim().min(1).max(120),
+    supplierInvoiceNumber: z.string().trim().min(1).max(60),
+    invoiceDate: isoDateRule,
+    taxRate: z.number().min(0).max(1).optional(),
+    notes: z.string().trim().max(1000).optional(),
+    lines: z
+      .array(
+        z
+          .object({
+            productId: z.string().trim().min(1).max(120),
+            quantity: z.number().positive().max(1_000_000_000),
+            unitCost: moneyRule,
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(200),
+    idempotencyKey: z.string().trim().regex(/^[A-Za-z0-9._:-]{8,128}$/, 'idempotencyKey must be 8-128 chars: letters, digits, . _ : -'),
+  })
+  .strict();
+
+export const cancelInvoiceSchema = z
+  .object({ reason: z.string().trim().min(1).max(500), expectedVersion: z.number().int().min(0) })
+  .strict();
+
+export const invoiceQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  supplierId: z.string().trim().min(1).max(120).optional(),
+  purchaseOrderId: z.string().trim().min(1).max(120).optional(),
+  status: z.enum(['ON_HOLD', 'POSTED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED']).optional(),
+  open: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
+});
+
+export const payablesQuerySchema = z.object({
+  supplierId: z.string().trim().min(1).max(120).optional(),
+});
+
 export const requestQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

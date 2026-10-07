@@ -100,7 +100,7 @@ function makeDeps() {
       const o: PurchaseOrder = {
         _id: id('po'), tenantId: data.tenantId, folio: data.folio, supplierId: data.supplierId,
         status: 'DRAFT', expectedDate: data.expectedDate, notes: data.notes,
-        lines: data.lines.map((l) => ({ ...l, quantityReceived: 0 })),
+        lines: data.lines.map((l) => ({ ...l, quantityReceived: 0, quantityInvoiced: 0 })),
         subtotal, createdAt: now(), updatedAt: now(), version: 1,
       };
       orders.set(o._id, o);
@@ -118,7 +118,7 @@ function makeDeps() {
         ...rest,
         ...(lines !== undefined
           ? {
-              lines: (lines as Array<{ productId: string; quantity: number; unitCost: number }>).map((l) => ({ ...l, quantityReceived: 0 })),
+              lines: (lines as Array<{ productId: string; quantity: number; unitCost: number }>).map((l) => ({ ...l, quantityReceived: 0, quantityInvoiced: 0 })),
               subtotal: (lines as Array<{ productId: string; quantity: number; unitCost: number }>).reduce((s, l) => s + l.quantity * l.unitCost, 0),
             }
           : {}),
@@ -127,6 +127,9 @@ function makeDeps() {
       };
       orders.set(oid, next);
       return next;
+    },
+    applyInvoice: async () => {
+      throw new Error('not used: invoices are covered by integration tests');
     },
     applyReceipt: async () => {
       throw new Error('not used: receipts are covered by integration tests');
