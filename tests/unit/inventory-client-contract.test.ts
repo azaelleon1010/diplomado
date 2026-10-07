@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   EMPTY_PRODUCT_FORM,
   createInventoryApi,
+  createStockApi,
+  newIdempotencyKey,
+  parseStockQuantity,
   isVersionConflict,
   productToFormValues,
   toCreateProductPayload,
@@ -124,5 +127,49 @@ describe('shared inventory HTTP contract', () => {
   it('exposes the server total so a truncated first page is visible', async () => {
     const { api } = recordingApi({ page: 1, limit: 100, total: 250, totalPages: 3 });
     await expect(api.listProductsPage('tok')).resolves.toMatchObject({ total: 250, totalPages: 3, limit: 100 });
+  });
+});
+
+describe('shared stock ledger client contract', () => {
+  it('uses the ledger routes with the exact methods and bodies', async () => {
+    const calls: Array<{ path: string; options: InventoryRequestOptions }> = [];
+    const api = createStockApi({
+      request: async <T>(path: string, options: InventoryRequestOptions) => {
+        calls.push({ path, options });
+        return {} as T;
+      },
+      page: async <T>(path: string, options: InventoryRequestOptions) => {
+        calls.push({ path, options });
+        return { data: [] as unknown as T, meta: { total: 7 } };
+      },
+    });
+    await api.listWarehouses('tok');
+    await api.listStock('tok', { productId: 'p1', nonZero: true });
+    await api.listMovements('tok', { warehouseId: 'w1', type: 'RECEIPT' });
+    await api.postMovements('tok', { lines: [{ productId: 'p1', warehouseId: 'w1', type: 'RECEIPT', quantity: 2 }], idempotencyKey: 'k-12345678' });
+    await api.transfer('tok', { productId: 'p1', fromWarehouseId: 'w1', toWarehouseId: 'w2', quantity: 1, idempotencyKey: 'k-87654321' });
+    await api.createWarehouse('tok', { code: 'A', name: 'Almacén' });
+
+    expect(calls.map((c) => `${c.options.method ?? 'GET'} ${c.path}`)).toEqual([
+      'GET /api/v1/inventory/warehouses?page=1&limit=100',
+      'GET /api/v1/inventory/stock?productId=p1&nonZero=true&page=1&limit=100',
+      'GET /api/v1/inventory/movements?warehouseId=w1&type=RECEIPT&page=1&limit=50',
+      'POST /api/v1/inventory/movements',
+      'POST /api/v1/inventory/transfers',
+      'POST /api/v1/inventory/warehouses',
+    ]);
+    expect(JSON.stringify(calls.map((c) => c.options.body ?? null))).not.toContain('tenantId');
+    expect((await api.listStock('tok')).total).toBe(7);
+  });
+
+  it('parses quantities like the API (positive, max 3 decimals) and builds unique keys', () => {
+    expect(parseStockQuantity('2,5')).toBe(2.5);
+    expect(parseStockQuantity('0.125')).toBe(0.125);
+    expect(parseStockQuantity('0.1234')).toBeUndefined();
+    expect(parseStockQuantity('0')).toBeUndefined();
+    expect(parseStockQuantity('-1')).toBeUndefined();
+    const a = newIdempotencyKey('web');
+    expect(a).toMatch(/^[A-Za-z0-9._:-]{8,128}$/);
+    expect(newIdempotencyKey('web')).not.toBe(a);
   });
 });

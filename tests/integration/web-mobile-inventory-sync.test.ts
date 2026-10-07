@@ -22,6 +22,7 @@ import type { IEmailProvider } from '../../apps/api/src/modules/notifications/do
 import {
   EMPTY_PRODUCT_FORM,
   createInventoryApi,
+  createStockApi,
   isVersionConflict,
   productToFormValues,
   toCreateProductPayload,
@@ -288,6 +289,30 @@ describe('Web ↔ API ↔ MongoDB ↔ Mobile: shared tenant inventory', () => {
     const reactivated = await mobile.api.activateProduct(mobile.token, mobileProductId, seenByMobile.version);
     expect(reactivated.status).toBe('ACTIVE');
     expect((await web.api.getProduct(web.token, mobileProductId)).status).toBe('ACTIVE');
+  });
+
+  it('stock posted from Mobile is visible on Web, and a Web transfer is visible on Mobile', async () => {
+    const mobileStock = createStockApi(httpClient());
+    const webStock = createStockApi(httpClient());
+    const main = await webStock.createWarehouse(web.token, { code: `MAIN-${stamp}`, name: 'Principal' });
+    const line = await webStock.createWarehouse(web.token, { code: `LINE-${stamp}`, name: 'Línea 1' });
+
+    const receipt = await mobileStock.postMovements(mobile.token, {
+      lines: [{ productId: webProductId, warehouseId: main._id, type: 'RECEIPT', quantity: 40 }],
+      reference: 'REM-1',
+      idempotencyKey: `mob-${stamp}-r1`,
+    });
+    expect(receipt.movements[0]?.balanceAfter).toBe(40);
+
+    const seenByWeb = await webStock.listStock(web.token, { productId: webProductId });
+    expect(seenByWeb.items.find((b) => b.warehouseId === main._id)?.quantity).toBe(40);
+
+    await webStock.transfer(web.token, { productId: webProductId, fromWarehouseId: main._id, toWarehouseId: line._id, quantity: 15, idempotencyKey: `web-${stamp}-t1` });
+    const seenByMobile = await mobileStock.listStock(mobile.token, { productId: webProductId });
+    expect(Object.fromEntries(seenByMobile.items.map((b) => [b.warehouseId, b.quantity]))).toEqual({ [main._id]: 25, [line._id]: 15 });
+
+    const history = await mobileStock.listMovements(mobile.token, { warehouseId: main._id });
+    expect(history.items.map((m) => m.type)).toEqual(['TRANSFER_OUT', 'RECEIPT']);
   });
 
   it('another company never sees or changes this inventory (404, never 200)', async () => {

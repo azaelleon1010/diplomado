@@ -7,6 +7,7 @@ import { RouteStateScreen } from '../screens/RouteStateScreen';
 import { DashboardScreen } from '../screens/Dashboard';
 import { ROUTE_DEFINITIONS, getRouteDefinition, canAccessRoute } from './registry';
 import { InventoryScreen } from '../screens/Inventory';
+import { StockScreen } from '../screens/Stock';
 
 export const PUBLIC_ROUTES = ['/login', '/register'];
 
@@ -57,6 +58,7 @@ export function renderRoute(
   if (path === '/dashboard') return <DashboardScreen />;
   // Registry requires inventory.read; the API enforces it again server-side.
   if (path === '/operations/inventory') return <InventoryScreen />;
+  if (path === '/operations/warehouses') return <StockScreen />;
 
   const exactRoute = ROUTE_DEFINITIONS.find((route) => route.path === path);
   if (exactRoute) return <ModulePlaceholder moduleName={exactRoute.title} />;

@@ -4,6 +4,7 @@
  */
 import {
   createInventoryApi,
+  createStockApi,
   type InventoryCategory,
   type InventoryProduct,
   type InventoryRequestClient,
@@ -207,3 +208,6 @@ const inventoryClient: InventoryRequestClient = {
 
 /** Shared inventory contract (packages/types/src/inventory.ts), same as Mobile. */
 export const inventoryApi = createInventoryApi(inventoryClient);
+
+/** Warehouses + stock ledger (packages/types/src/inventory.ts), same as the other client. */
+export const stockApi = createStockApi(inventoryClient);

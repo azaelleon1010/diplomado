@@ -21,6 +21,8 @@ export type OperationsStackParamList = {
   OperationsHub: undefined;
   Inventory: undefined;
   ProductForm: { productId: string } | undefined;
+  Stock: undefined;
+  StockMovementForm: { productId?: string; warehouseId?: string } | undefined;
   Maintenance: undefined;
   AssetForm: undefined;
   MaintenanceOrderForm: undefined;

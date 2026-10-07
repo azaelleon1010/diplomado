@@ -367,3 +367,207 @@ export function createInventoryApi(client: InventoryRequestClient) {
 }
 
 export type InventoryApi = ReturnType<typeof createInventoryApi>;
+
+// ---------------------------------------------------------------------------
+// Warehouses and stock ledger (balances, movements, transfers)
+// ---------------------------------------------------------------------------
+
+export interface InventoryWarehouse {
+  _id: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  description?: string;
+  address?: string;
+  status: InventoryStatus;
+  createdAt?: string;
+  updatedAt?: string;
+  version: number;
+}
+
+export interface CreateWarehousePayload {
+  code: string;
+  name: string;
+  description?: string;
+  address?: string;
+}
+
+export type StockMovementType = 'RECEIPT' | 'ISSUE' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT' | 'TRANSFER_IN' | 'TRANSFER_OUT';
+export type ManualStockMovementType = 'RECEIPT' | 'ISSUE' | 'ADJUSTMENT_IN' | 'ADJUSTMENT_OUT';
+
+export const STOCK_MOVEMENT_LABELS: Readonly<Record<StockMovementType, string>> = {
+  RECEIPT: 'Entrada',
+  ISSUE: 'Salida',
+  ADJUSTMENT_IN: 'Ajuste (+)',
+  ADJUSTMENT_OUT: 'Ajuste (−)',
+  TRANSFER_IN: 'Transferencia (entrada)',
+  TRANSFER_OUT: 'Transferencia (salida)',
+};
+
+/** Permission the API requires for each manual movement type. */
+export const STOCK_MOVEMENT_PERMISSION: Readonly<Record<ManualStockMovementType, string>> = {
+  RECEIPT: 'inventory.stock.in',
+  ISSUE: 'inventory.stock.out',
+  ADJUSTMENT_IN: 'inventory.stock.adjust',
+  ADJUSTMENT_OUT: 'inventory.stock.adjust',
+};
+
+export interface StockBalanceView {
+  _id: string;
+  tenantId: string;
+  productId: string;
+  warehouseId: string;
+  quantity: number;
+  updatedAt: string;
+}
+
+export interface StockMovementView {
+  _id: string;
+  tenantId: string;
+  postingId: string;
+  productId: string;
+  warehouseId: string;
+  type: StockMovementType;
+  direction: 'IN' | 'OUT';
+  quantity: number;
+  unitCost?: number;
+  balanceAfter: number;
+  source: { type: string; id?: string; reference?: string };
+  notes?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface PostStockMovementsPayload {
+  lines: Array<{ productId: string; warehouseId: string; type: ManualStockMovementType; quantity: number; unitCost?: number }>;
+  reference?: string;
+  notes?: string;
+  idempotencyKey: string;
+}
+
+export interface TransferStockPayload {
+  productId: string;
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  quantity: number;
+  reference?: string;
+  notes?: string;
+  idempotencyKey: string;
+}
+
+export interface StockPostingResult {
+  postingId: string;
+  movements: StockMovementView[];
+  replayed: boolean;
+}
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * One key per user action (create it when the form opens / before the
+ * first submit and reuse it on retries). Not a secret: uniqueness only.
+ */
+export function newIdempotencyKey(prefix = 'op'): string {
+  const random = Math.random().toString(36).slice(2, 12);
+  return `${prefix}-${Date.now().toString(36)}-${random}`;
+}
+
+/** Same rule as the API: positive, at most 3 decimals; accepts "1,5". */
+export function parseStockQuantity(raw: string): number | undefined {
+  const text = raw.trim();
+  if (!/^\d+(?:[.,]\d{1,3})?$/.test(text)) return undefined;
+  const value = Number(text.replace(',', '.'));
+  return Number.isFinite(value) && value > 0 && value <= 1_000_000_000 ? value : undefined;
+}
+
+export function formatQuantity(value: number): string {
+  return value.toLocaleString('es-MX', { maximumFractionDigits: 3 });
+}
+
+export function createStockApi(client: InventoryRequestClient) {
+  async function page<T>(path: string, token: string): Promise<Page<T>> {
+    const result = await client.page<T[]>(path, { token });
+    const items = Array.isArray(result.data) ? result.data : [];
+    return {
+      items,
+      total: metaNumber(result.meta, 'total', items.length),
+      page: metaNumber(result.meta, 'page', 1),
+      limit: metaNumber(result.meta, 'limit', items.length),
+      totalPages: metaNumber(result.meta, 'totalPages', 1),
+    };
+  }
+
+  return {
+    listWarehouses(token: string): Promise<Page<InventoryWarehouse>> {
+      return page<InventoryWarehouse>(`${BASE}/warehouses${query({ page: 1, limit: 100 })}`, token);
+    },
+
+    createWarehouse(token: string, payload: CreateWarehousePayload): Promise<InventoryWarehouse> {
+      return client.request<InventoryWarehouse>(`${BASE}/warehouses`, { method: 'POST', token, body: payload });
+    },
+
+    deactivateWarehouse(token: string, warehouseId: string): Promise<InventoryWarehouse> {
+      return client.request<InventoryWarehouse>(`${BASE}/warehouses/${encodeURIComponent(warehouseId)}`, { method: 'DELETE', token });
+    },
+
+    listStock(token: string, params: { productId?: string; warehouseId?: string; nonZero?: boolean; page?: number; limit?: number } = {}): Promise<Page<StockBalanceView>> {
+      return page<StockBalanceView>(
+        `${BASE}/stock${query({
+          productId: params.productId,
+          warehouseId: params.warehouseId,
+          nonZero: params.nonZero ? 'true' : undefined,
+          page: params.page ?? 1,
+          limit: params.limit ?? 100,
+        })}`,
+        token,
+      );
+    },
+
+    listMovements(token: string, params: { productId?: string; warehouseId?: string; type?: StockMovementType; page?: number; limit?: number } = {}): Promise<Page<StockMovementView>> {
+      return page<StockMovementView>(
+        `${BASE}/movements${query({
+          productId: params.productId,
+          warehouseId: params.warehouseId,
+          type: params.type,
+          page: params.page ?? 1,
+          limit: params.limit ?? 50,
+        })}`,
+        token,
+      );
+    },
+
+    postMovements(token: string, payload: PostStockMovementsPayload): Promise<StockPostingResult> {
+      return client.request<StockPostingResult>(`${BASE}/movements`, { method: 'POST', token, body: payload });
+    },
+
+    transfer(token: string, payload: TransferStockPayload): Promise<StockPostingResult> {
+      return client.request<StockPostingResult>(`${BASE}/transfers`, { method: 'POST', token, body: payload });
+    },
+  };
+}
+
+export type StockApi = ReturnType<typeof createStockApi>;
+
+/**
+ * Spanish message for ledger business errors (API messages are technical
+ * English). Returns null for errors the caller should describe itself.
+ */
+export function describeStockError(error: unknown): string | null {
+  if (!error || typeof error !== 'object') return null;
+  const { code, fields } = error as { code?: unknown; fields?: Record<string, unknown> };
+  if (code === 'INSUFFICIENT_STOCK') {
+    const available = typeof fields?.available === 'number' ? formatQuantity(fields.available) : '0';
+    const requested = typeof fields?.requested === 'number' ? formatQuantity(fields.requested) : '';
+    return `Existencia insuficiente: disponible ${available}${requested ? `, solicitado ${requested}` : ''}. No se registró ningún movimiento.`;
+  }
+  if (code === 'IDEMPOTENCY_CONFLICT') {
+    return 'Esta operación ya se había enviado con otros datos. Revisa los movimientos antes de reintentar.';
+  }
+  return null;
+}

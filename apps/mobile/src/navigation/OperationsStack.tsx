@@ -4,6 +4,8 @@ import type { OperationsStackParamList } from './types';
 import { OperationsHubScreen } from '../screens/OperationsHubScreen';
 import { InventoryScreen } from '../screens/InventoryScreen';
 import { ProductFormScreen } from '../screens/ProductFormScreen';
+import { StockScreen } from '../screens/StockScreen';
+import { StockMovementFormScreen } from '../screens/StockMovementFormScreen';
 import { MaintenanceScreen } from '../screens/MaintenanceScreen';
 import { AssetFormScreen } from '../screens/AssetFormScreen';
 import { MaintenanceOrderFormScreen } from '../screens/MaintenanceOrderFormScreen';
@@ -26,6 +28,8 @@ import { withModulePermission } from './withModulePermission';
 const Stack = createNativeStackNavigator<OperationsStackParamList>();
 const InventoryScreenAccess = withModulePermission(InventoryScreen, MODULE_ACCESS.inventoryRead);
 const ProductFormScreenAccess = withModulePermission(ProductFormScreen, MODULE_ACCESS.inventoryWrite);
+const StockScreenAccess = withModulePermission(StockScreen, MODULE_ACCESS.inventoryRead);
+const StockMovementFormScreenAccess = withModulePermission(StockMovementFormScreen, MODULE_ACCESS.inventoryMove);
 const MaintenanceScreenAccess = withModulePermission(MaintenanceScreen, MODULE_ACCESS.maintenanceRead);
 const AssetFormScreenAccess = withModulePermission(AssetFormScreen, MODULE_ACCESS.maintenanceWrite);
 const MaintenanceOrderFormScreenAccess = withModulePermission(MaintenanceOrderFormScreen, MODULE_ACCESS.maintenanceWrite);
@@ -49,6 +53,8 @@ export function OperationsStack(): React.JSX.Element {
       <Stack.Screen name="OperationsHub" component={OperationsHubScreen} />
       <Stack.Screen name="Inventory" component={InventoryScreenAccess} />
       <Stack.Screen name="ProductForm" component={ProductFormScreenAccess} />
+      <Stack.Screen name="Stock" component={StockScreenAccess} />
+      <Stack.Screen name="StockMovementForm" component={StockMovementFormScreenAccess} />
       <Stack.Screen name="Maintenance" component={MaintenanceScreenAccess} />
       <Stack.Screen name="AssetForm" component={AssetFormScreenAccess} />
       <Stack.Screen name="MaintenanceOrderForm" component={MaintenanceOrderFormScreenAccess} />

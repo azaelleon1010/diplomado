@@ -23,6 +23,7 @@ export const MODULE_ACCESS = {
   inventoryCreate: ['inventory.create'],
   inventoryUpdate: ['inventory.update'],
   inventoryDelete: ['inventory.delete'],
+  inventoryMove: ['inventory.stock.in', 'inventory.stock.out', 'inventory.stock.adjust', 'inventory.transfer'],
   purchasingRead: ['purchasing.read'],
   purchasingWrite: ['purchasing.create', 'purchasing.update'],
   productionRead: ['production.read'],

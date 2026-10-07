@@ -191,6 +191,13 @@ export function InventoryScreen(): React.JSX.Element {
           onChange={setQuery}
           placeholder="Buscar por nombre o SKU…"
         />
+        <TouchableOpacity
+          style={[styles.stockButton, { borderColor: palette.brand }]}
+          onPress={() => navigation.navigate('Stock')}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.stockButtonText, { color: palette.brand }]}>Existencias y movimientos</Text>
+        </TouchableOpacity>
         {canCreate ? (
           <TouchableOpacity
             style={[styles.addButton, { backgroundColor: palette.brand }]}
@@ -239,6 +246,18 @@ const styles = StyleSheet.create({
 
   addButtonText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  stockButton: {
+    borderRadius: 10,
+    borderWidth: 2,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+  },
+
+  stockButtonText: {
     fontSize: 16,
     fontWeight: '700',
   },

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notifySessionExpired } from '../auth/sessionEvents';
 import {
   createInventoryApi,
+  createStockApi,
   type InventoryCategory,
   type InventoryProduct,
   type InventoryRequestClient,
@@ -375,6 +376,9 @@ const inventoryClient: InventoryRequestClient = {
 
 /** Shared inventory contract (packages/types/src/inventory.ts), same as Web. */
 export const inventoryApi = createInventoryApi(inventoryClient);
+
+/** Warehouses + stock ledger (packages/types/src/inventory.ts), same as the other client. */
+export const stockApi = createStockApi(inventoryClient);
 
 export interface Asset {
   _id: string;
