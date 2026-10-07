@@ -9,6 +9,7 @@ import {
   type InventoryProduct,
   type InventoryRequestClient,
 } from '../../../../packages/types/src/inventory';
+import { createPurchasingApi } from '../../../../packages/types/src/purchasing';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 export const SESSION_EXPIRED_EVENT = 'tramatech:session-expired';
@@ -211,3 +212,6 @@ export const inventoryApi = createInventoryApi(inventoryClient);
 
 /** Warehouses + stock ledger (packages/types/src/inventory.ts), same as the other client. */
 export const stockApi = createStockApi(inventoryClient);
+
+/** Shared purchasing contract (packages/types/src/purchasing.ts), same client Mobile uses. */
+export const purchasingApi = createPurchasingApi(inventoryClient);
