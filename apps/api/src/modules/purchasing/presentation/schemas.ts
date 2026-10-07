@@ -198,6 +198,36 @@ export const convertRequestSchema = z
   })
   .strict();
 
+export const createQuoteSchema = z
+  .object({
+    supplierId: z.string().trim().min(1).max(120),
+    currency: currencyRule.optional(),
+    validUntil: z.string().trim().max(30).optional(),
+    notes: z.string().trim().max(1000).optional(),
+    lines: z
+      .array(
+        z
+          .object({
+            productId: z.string().trim().min(1).max(120),
+            unitCost: moneyRule,
+            quantity: z.number().positive().max(1_000_000_000).optional(),
+            leadTimeDays: daysRule.optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(200),
+  })
+  .strict();
+
+export const awardQuoteSchema = z
+  .object({
+    folio: z.string().trim().min(1).max(32).optional(),
+    expectedDate: z.string().trim().max(30).optional(),
+    expectedVersion: z.number().int().min(0),
+  })
+  .strict();
+
 export const requestQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

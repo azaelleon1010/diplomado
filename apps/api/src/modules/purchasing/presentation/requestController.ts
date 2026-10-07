@@ -14,7 +14,10 @@ import {
   updatePurchaseRequest,
   type RequestDeps,
 } from '../application/requests';
+import { awardSupplierQuote, compareSupplierQuotes, createSupplierQuote, type QuoteDeps } from '../application/quotes';
 import {
+  awardQuoteSchema,
+  createQuoteSchema,
   convertRequestSchema,
   createRequestSchema,
   decideRequestSchema,
@@ -76,6 +79,23 @@ export function createRequestController(deps: RequestDeps) {
     convert: wrap(async (req, res) => {
       const { id } = purchasingIdParamSchema.parse(req.params);
       ok(res, req, await convertRequestToOrder(actorOf(req), id, convertRequestSchema.parse(req.body), deps), 201);
+    }),
+  };
+}
+
+export function createQuoteController(deps: QuoteDeps) {
+  return {
+    create: wrap(async (req, res) => {
+      const { id } = purchasingIdParamSchema.parse(req.params);
+      ok(res, req, await createSupplierQuote(actorOf(req), id, createQuoteSchema.parse(req.body), deps), 201);
+    }),
+    compare: wrap(async (req, res) => {
+      const { id } = purchasingIdParamSchema.parse(req.params);
+      ok(res, req, await compareSupplierQuotes(actorOf(req), id, deps));
+    }),
+    award: wrap(async (req, res) => {
+      const { id } = purchasingIdParamSchema.parse(req.params);
+      ok(res, req, await awardSupplierQuote(actorOf(req), id, awardQuoteSchema.parse(req.body), deps), 201);
     }),
   };
 }

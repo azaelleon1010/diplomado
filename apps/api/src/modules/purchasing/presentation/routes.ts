@@ -9,7 +9,8 @@ import type { PurchasingDeps } from '../application/usecases';
 import type { ReceiptDeps } from '../application/receipts';
 import type { RequestDeps } from '../application/requests';
 import { MongoPurchaseRequestStore } from '../infrastructure/requestRepository';
-import { createRequestController } from './requestController';
+import { createQuoteController, createRequestController } from './requestController';
+import { MongoSupplierQuoteStore } from '../infrastructure/quoteRepository';
 import type { InventoryDeps } from '../../inventory/application/usecases';
 import { buildInventoryDeps, buildStockDeps } from '../../inventory/presentation/routes';
 import { MongoGoodsReceiptStore } from '../infrastructure/receiptRepository';
@@ -70,6 +71,7 @@ export function createPurchasingRouter(
   const controller = createPurchasingController(deps);
   const receipts = createReceiptController(receiptDeps);
   const requests = createRequestController(requestDeps);
+  const quotes = createQuoteController({ ...requestDeps, quotes: new MongoSupplierQuoteStore() });
   const guard = [authenticate(auth), requireTenant()];
   const read = requirePermission(auth, PERMISSIONS.PURCHASING_READ);
   const create = requirePermission(auth, PERMISSIONS.PURCHASING_CREATE);
@@ -111,6 +113,11 @@ export function createPurchasingRouter(
   router.post('/requests/:id/decision', ...guard, approve, requests.decide);
   router.post('/requests/:id/cancel', ...guard, cancel, requests.cancel);
   router.post('/requests/:id/convert', ...guard, create, requests.convert);
+
+  // Supplier quotes: register per request, compare, award (→ purchase order).
+  router.get('/requests/:id/quotes', ...guard, read, quotes.compare);
+  router.post('/requests/:id/quotes', ...guard, create, quotes.create);
+  router.post('/quotes/:id/award', ...guard, approve, quotes.award);
 
   return router;
 }

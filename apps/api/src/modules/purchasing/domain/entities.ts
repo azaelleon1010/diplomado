@@ -89,5 +89,7 @@ export const PURCHASING_ACTIONS = {
   REQUEST_REJECTED: 'purchasing.request.rejected',
   REQUEST_CANCELLED: 'purchasing.request.cancelled',
   REQUEST_ORDERED: 'purchasing.request.ordered',
+  QUOTE_RECEIVED: 'purchasing.quote.received',
+  QUOTE_AWARDED: 'purchasing.quote.awarded',
   RECEIPT_POSTED: 'purchasing.receipt.posted',
 } as const;

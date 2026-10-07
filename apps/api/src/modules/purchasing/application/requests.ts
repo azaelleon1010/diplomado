@@ -194,8 +194,19 @@ async function nextOrderFolio(ctx: PurchasingActor, deps: RequestDeps, session: 
   throw new AppError({ code: 'CONFLICT', message: 'Could not allocate a purchase order folio', statusCode: 409 });
 }
 
-export async function convertRequestToOrder(ctx: PurchasingActor, id: string, input: ConvertRequestInput, deps: RequestDeps): Promise<{ request: PurchaseRequest; order: PurchaseOrder }> {
-  const request = await getPurchaseRequest(ctx, id, deps);
+/**
+ * Conversion core. Pass outerSession to run inside the caller transaction
+ * (quote award); otherwise a new transaction is opened.
+ */
+export async function convertRequestToOrder(
+  ctx: PurchasingActor,
+  id: string,
+  input: ConvertRequestInput,
+  deps: RequestDeps,
+  outerSession?: TxSession,
+): Promise<{ request: PurchaseRequest; order: PurchaseOrder }> {
+  const request = await deps.requests.findById(ctx.tenantId, id, outerSession);
+  if (!request) throw notFound('Purchase request');
   assertTransition(request, 'ORDERED');
   await assertSupplierUsable(deps, ctx.tenantId, input.supplierId);
 
@@ -211,8 +222,7 @@ export async function convertRequestToOrder(ctx: PurchasingActor, id: string, in
   assertLines(lines);
   for (const line of lines) await assertCatalogProduct(deps, ctx.tenantId, line.productId);
 
-  const runTx: TxRunner = deps.tx ?? ((fn) => withTransaction((s) => fn(s as TxSession)));
-  return runTx(async (session) => {
+  const run = async (session: TxSession) => {
     const folio = input.folio?.trim() ? input.folio.trim().toUpperCase() : await nextOrderFolio(ctx, deps, session);
     if (input.folio?.trim() && (await deps.orders.findByFolio(ctx.tenantId, folio, session))) {
       throw new AppError({ code: 'CONFLICT', message: 'Duplicate value for folio', statusCode: 409, fields: { duplicateFields: { folio: true } } });
@@ -235,5 +245,8 @@ export async function convertRequestToOrder(ctx: PurchasingActor, id: string, in
     await audit(deps, ctx, PURCHASING_ACTIONS.REQUEST_ORDERED, id, { status: request.status }, { status: 'ORDERED', purchaseOrderId: order._id, folio }, session);
     await audit(deps, ctx, PURCHASING_ACTIONS.ORDER_CREATED, order._id, undefined, { folio, requestId: request._id, subtotal: order.subtotal }, session, 'purchaseOrder');
     return { request: updated, order };
-  });
+  };
+  if (outerSession !== undefined) return run(outerSession);
+  const runTx: TxRunner = deps.tx ?? ((fn) => withTransaction((s) => fn(s as TxSession)));
+  return runTx(run);
 }

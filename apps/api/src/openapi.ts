@@ -525,6 +525,28 @@ export const openApiSpec = {
         responses: { '201': { description: '{ request, order }' }, '400': { description: 'Not approved, missing prices or unknown product' }, '403': { description: 'Missing purchasing.create' }, '409': { description: 'Duplicate folio or version conflict' } },
       },
     },
+    '/purchasing/requests/{id}/quotes': {
+      get: {
+        tags: ['purchasing'],
+        summary: 'Compare supplier quotes for a request: quotes sorted by total, offers per line, best line offer and cheapest complete quote',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Comparison' }, '403': { description: 'Missing purchasing.read' }, '404': { description: 'Request not found' } },
+      },
+      post: {
+        tags: ['purchasing'],
+        summary: 'Register a supplier quote (COT-000001) for a SUBMITTED or APPROVED request; one per supplier. Body: { supplierId, currency?, validUntil?, notes?, lines[{productId, unitCost, quantity?, leadTimeDays?}] }',
+        security: [{ bearerAuth: [] }],
+        responses: { '201': { description: 'Quote registered' }, '400': { description: 'Request not quotable or product not requested' }, '403': { description: 'Missing purchasing.create' }, '409': { description: 'Supplier already quoted' } },
+      },
+    },
+    '/purchasing/quotes/{id}/award': {
+      post: {
+        tags: ['purchasing'],
+        summary: 'Award a quote: converts the APPROVED request into a DRAFT purchase order with the quoted prices; other quotes become DISCARDED (atomic). Body: { folio?, expectedDate?, expectedVersion }',
+        security: [{ bearerAuth: [] }],
+        responses: { '201': { description: '{ quote, order, request }' }, '400': { description: 'Request not approved or quote incomplete' }, '403': { description: 'Missing purchasing.approve' }, '409': { description: 'Version conflict' } },
+      },
+    },
     '/purchasing/receipts': {
       get: {
         tags: ['purchasing'],
