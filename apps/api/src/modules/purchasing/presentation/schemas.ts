@@ -9,6 +9,17 @@ import { z } from 'zod';
 const supplierStatusRule = z.enum(['ACTIVE', 'INACTIVE']);
 const orderStatusRule = z.enum(['DRAFT', 'SENT', 'APPROVED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED']);
 const moneyRule = z.number().finite().min(0).max(1_000_000_000);
+const daysRule = z.number().int().min(0).max(365);
+const currencyRule = z.string().trim().regex(/^[A-Za-z]{3}$/, 'currency must be an ISO 4217 code (e.g. MXN)');
+const contactRule = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    email: z.string().trim().max(254).optional(),
+    phone: z.string().trim().max(40).optional(),
+    role: z.string().trim().max(100).optional(),
+    isPrimary: z.boolean().optional(),
+  })
+  .strict();
 
 export const createSupplierSchema = z
   .object({
@@ -19,6 +30,10 @@ export const createSupplierSchema = z
     phone: z.string().trim().max(40).optional(),
     address: z.string().trim().max(300).optional(),
     taxId: z.string().trim().max(40).optional(),
+    paymentTermsDays: daysRule.optional(),
+    currency: currencyRule.optional(),
+    leadTimeDays: daysRule.optional(),
+    contacts: z.array(contactRule).max(20).optional(),
   })
   .strict();
 
@@ -30,6 +45,10 @@ export const updateSupplierSchema = z
     phone: z.string().trim().max(40).nullable().optional(),
     address: z.string().trim().max(300).nullable().optional(),
     taxId: z.string().trim().max(40).nullable().optional(),
+    paymentTermsDays: daysRule.optional(),
+    currency: currencyRule.optional(),
+    leadTimeDays: daysRule.nullable().optional(),
+    contacts: z.array(contactRule).max(20).optional(),
     status: supplierStatusRule.optional(),
     // NOTE: versions are 0-based at runtime (Mongoose optimisticConcurrency
     // manages versionKey starting at 0), so 0 must be accepted here.

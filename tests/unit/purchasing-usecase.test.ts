@@ -58,6 +58,8 @@ function makeDeps() {
         _id: id('sup'), tenantId: data.tenantId, code: data.code.toUpperCase(), name: data.name,
         contactName: data.contactName, email: data.email, phone: data.phone,
         address: data.address, taxId: data.taxId, status: 'ACTIVE',
+        paymentTermsDays: data.paymentTermsDays ?? 0, currency: data.currency ?? 'MXN',
+        leadTimeDays: data.leadTimeDays ?? undefined, contacts: data.contacts ?? [],
         createdAt: now(), updatedAt: now(), version: 1,
       };
       suppliers.set(s._id, s);
@@ -69,7 +71,12 @@ function makeDeps() {
       if (s.version !== expectedVersion) {
         throw Object.assign(new Error('Version conflict'), { name: 'VersionError' });
       }
-      const next = { ...s, ...patch, version: s.version + 1, updatedAt: now() };
+      // Same null-clears semantics as the Mongo store.
+      const next = { ...s, version: s.version + 1, updatedAt: now() } as Supplier;
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === undefined) continue;
+        (next as unknown as Record<string, unknown>)[k] = v === null ? undefined : v;
+      }
       suppliers.set(sid, next);
       return next;
     },

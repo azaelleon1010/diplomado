@@ -17,6 +17,7 @@ import type {
   ISupplierStore,
   OrderFilters,
   SupplierFilters,
+  SupplierTermsData,
   UpdatePurchaseOrderData,
 } from '../domain/ports';
 import type { IProductStore } from '../../inventory/domain/ports';
@@ -97,7 +98,34 @@ function assertLines(lines: Array<{ productId: string; quantity: number; unitCos
 // Suppliers
 // ---------------------------------------------------------------------------
 
-export interface CreateSupplierInput {
+type SupplierTermsInput = SupplierTermsData;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Normalizes and validates commercial terms and contacts. */
+function normalizeTerms(input: SupplierTermsInput): SupplierTermsData {
+  const out: SupplierTermsData = {};
+  if (input.paymentTermsDays !== undefined) out.paymentTermsDays = input.paymentTermsDays;
+  if (input.currency !== undefined) out.currency = input.currency.trim().toUpperCase();
+  if (input.leadTimeDays !== undefined) out.leadTimeDays = input.leadTimeDays;
+  if (input.contacts !== undefined) {
+    const contacts = input.contacts.map((c) => ({
+      name: c.name.trim(),
+      ...(c.email?.trim() ? { email: c.email.trim().toLowerCase() } : {}),
+      ...(c.phone?.trim() ? { phone: c.phone.trim() } : {}),
+      ...(c.role?.trim() ? { role: c.role.trim() } : {}),
+      ...(c.isPrimary ? { isPrimary: true } : {}),
+    }));
+    for (const contact of contacts) {
+      if (contact.email && !EMAIL_RE.test(contact.email)) throw invalid('Invalid contact email', { contact: contact.name });
+    }
+    if (contacts.filter((c) => c.isPrimary).length > 1) throw invalid('Only one primary contact is allowed');
+    out.contacts = contacts;
+  }
+  return out;
+}
+
+export interface CreateSupplierInput extends SupplierTermsInput {
   code: string;
   name: string;
   contactName?: string;
@@ -123,6 +151,7 @@ export async function createSupplier(ctx: PurchasingActor, input: CreateSupplier
     phone: input.phone?.trim() || undefined,
     address: input.address?.trim() || undefined,
     taxId: input.taxId?.trim() || undefined,
+    ...normalizeTerms(input),
     createdBy: ctx.userId,
   });
   await audit(deps, {
@@ -148,7 +177,7 @@ export async function listSuppliers(ctx: PurchasingActor, filters: SupplierFilte
   return deps.suppliers.list(ctx.tenantId, filters, page, limit, sortBy, sortOrder);
 }
 
-export interface UpdateSupplierInput {
+export interface UpdateSupplierInput extends SupplierTermsInput {
   name?: string;
   contactName?: string | null;
   email?: string | null;
@@ -166,7 +195,7 @@ export async function updateSupplier(ctx: PurchasingActor, id: string, input: Up
   if (fields.email !== undefined && fields.email !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim())) {
     throw invalid('Invalid supplier email');
   }
-  const updated = await deps.suppliers.update(ctx.tenantId, id, fields, expectedVersion, ctx.userId);
+  const updated = await deps.suppliers.update(ctx.tenantId, id, { ...fields, ...normalizeTerms(fields) }, expectedVersion, ctx.userId);
   if (!updated) throw notFound('Supplier');
   await audit(deps, {
     tenantId: ctx.tenantId,

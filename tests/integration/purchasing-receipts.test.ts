@@ -28,7 +28,7 @@ describe('Purchasing → Inventory: goods receipts', () => {
   let supplier = '';
 
   const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
-  const api = (method: 'get' | 'post' | 'delete', path: string, t = owner) => request(app)[method](`/api/v1${path}`).set(auth(t));
+  const api = (method: 'get' | 'post' | 'patch' | 'delete', path: string, t = owner) => request(app)[method](`/api/v1${path}`).set(auth(t));
 
   async function register(companyName: string, email: string) {
     const res = await request(app).post('/api/v1/auth/register').send({ companyName, username: `u.${stamp}.${companyName.length}`, email, password: 'Password123' });
@@ -190,6 +190,39 @@ describe('Purchasing → Inventory: goods receipts', () => {
     expect((await receive(created.body.data._id, [{ productId: fabric, quantity: 1 }], key(), buyer)).status).toBe(403);
     expect((await receive(created.body.data._id, [{ productId: fabric, quantity: 3 }], key(), receiver)).status).toBe(201);
     expect((await api('post', `/purchasing/orders/${created.body.data._id}/transition`, receiver).send({ to: 'APPROVED', expectedVersion: 0 })).status).toBe(403);
+  });
+
+  it('stores supplier commercial terms and contacts with defaults for older suppliers', async () => {
+    const legacy = await api('get', `/purchasing/suppliers/${supplier}`);
+    expect(legacy.body.data).toMatchObject({ paymentTermsDays: 0, currency: 'MXN', contacts: [] });
+
+    const created = await api('post', '/purchasing/suppliers').send({
+      code: `HIL-${stamp}`,
+      name: 'Hilos del Bajío',
+      paymentTermsDays: 30,
+      currency: 'usd',
+      leadTimeDays: 7,
+      contacts: [
+        { name: 'Laura Ruiz', email: 'Laura@Hilos.mx', role: 'Ventas', isPrimary: true },
+        { name: 'Pedro Gómez', phone: '+52 33 1234 5678', role: 'Cobranza' },
+      ],
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({ paymentTermsDays: 30, currency: 'USD', leadTimeDays: 7 });
+    expect(created.body.data.contacts[0]).toMatchObject({ email: 'laura@hilos.mx', isPrimary: true });
+
+    const updated = await api('patch', `/purchasing/suppliers/${created.body.data._id}`).send({ leadTimeDays: null, paymentTermsDays: 45, expectedVersion: created.body.data.version });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.paymentTermsDays).toBe(45);
+    expect(updated.body.data.leadTimeDays).toBeUndefined();
+
+    const invalid = [
+      { code: `X1-${stamp}`, name: 'X', currency: 'PESOS' },
+      { code: `X2-${stamp}`, name: 'Xx', paymentTermsDays: 400 },
+      { code: `X3-${stamp}`, name: 'Xx', contacts: [{ name: 'A', email: 'no-es-correo' }] },
+      { code: `X4-${stamp}`, name: 'Xx', contacts: [{ name: 'A', isPrimary: true }, { name: 'B', isPrimary: true }] },
+    ];
+    for (const body of invalid) expect((await api('post', '/purchasing/suppliers').send(body)).status).toBe(400);
   });
 
   it('isolates tenants and audits receipts', async () => {

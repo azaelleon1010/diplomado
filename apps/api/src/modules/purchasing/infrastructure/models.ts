@@ -16,6 +16,10 @@ export interface SupplierDoc extends mongoose.Document {
   phone?: string;
   address?: string;
   taxId?: string;
+  paymentTermsDays?: number;
+  currency?: string;
+  leadTimeDays?: number;
+  contacts?: Array<{ name: string; email?: string; phone?: string; role?: string; isPrimary?: boolean }>;
   status: 'ACTIVE' | 'INACTIVE';
   createdBy: string;
   updatedBy: string;
@@ -34,6 +38,24 @@ const supplierSchema = new Schema<SupplierDoc>(
     phone: { type: String, trim: true, maxlength: 40 },
     address: { type: String, trim: true, maxlength: 300 },
     taxId: { type: String, trim: true, maxlength: 40 },
+    paymentTermsDays: { type: Number, min: 0, max: 365, default: 0 },
+    currency: { type: String, trim: true, uppercase: true, minlength: 3, maxlength: 3, default: 'MXN' },
+    leadTimeDays: { type: Number, min: 0, max: 365 },
+    contacts: {
+      type: [
+        new Schema(
+          {
+            name: { type: String, required: true, trim: true, maxlength: 200 },
+            email: { type: String, trim: true, lowercase: true, maxlength: 254 },
+            phone: { type: String, trim: true, maxlength: 40 },
+            role: { type: String, trim: true, maxlength: 100 },
+            isPrimary: { type: Boolean },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     status: { type: String, enum: ['ACTIVE', 'INACTIVE'], default: 'ACTIVE', index: true },
   } as Record<string, unknown>,
   { ...baseOptions, collection: 'suppliers' },

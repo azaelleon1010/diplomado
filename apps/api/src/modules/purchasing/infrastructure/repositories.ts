@@ -13,6 +13,7 @@ import type {
   ISupplierStore,
   OrderFilters,
   SupplierFilters,
+  SupplierTermsData,
   UpdatePurchaseOrderData,
 } from '../domain/ports';
 import type { PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus, Supplier, SupplierStatus } from '../domain/entities';
@@ -47,6 +48,11 @@ function toSupplier(doc: SupplierDoc): Supplier {
     phone: doc.phone,
     address: doc.address,
     taxId: doc.taxId,
+    // Documents created before commercial terms existed get safe defaults.
+    paymentTermsDays: doc.paymentTermsDays ?? 0,
+    currency: doc.currency ?? 'MXN',
+    leadTimeDays: doc.leadTimeDays,
+    contacts: (doc.contacts ?? []).map((c) => ({ name: c.name, email: c.email, phone: c.phone, role: c.role, isPrimary: c.isPrimary })),
     status: doc.status,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
@@ -126,7 +132,7 @@ export class MongoSupplierStore implements ISupplierStore {
     };
   }
 
-  async create(data: { tenantId: string; code: string; name: string; contactName?: string; email?: string; phone?: string; address?: string; taxId?: string; createdBy: string }, session?: TxSession): Promise<Supplier> {
+  async create(data: { tenantId: string; code: string; name: string; contactName?: string; email?: string; phone?: string; address?: string; taxId?: string; createdBy: string } & SupplierTermsData, session?: TxSession): Promise<Supplier> {
     const created = await this.base.create(
       clean({
         code: data.code.trim().toUpperCase(),
@@ -136,6 +142,10 @@ export class MongoSupplierStore implements ISupplierStore {
         phone: data.phone,
         address: data.address,
         taxId: data.taxId,
+        paymentTermsDays: data.paymentTermsDays ?? 0,
+        currency: data.currency ?? 'MXN',
+        leadTimeDays: data.leadTimeDays ?? undefined,
+        contacts: data.contacts ?? [],
         status: 'ACTIVE',
       }),
       { tenantId: data.tenantId, userId: data.createdBy },
@@ -144,7 +154,7 @@ export class MongoSupplierStore implements ISupplierStore {
     return toSupplier(created);
   }
 
-  async update(tenantId: string, id: string, patch: { name?: string; contactName?: string | null; email?: string | null; phone?: string | null; address?: string | null; taxId?: string | null; status?: SupplierStatus }, expectedVersion: number, updatedBy: string, session?: TxSession): Promise<Supplier | null> {
+  async update(tenantId: string, id: string, patch: { name?: string; contactName?: string | null; email?: string | null; phone?: string | null; address?: string | null; taxId?: string | null; status?: SupplierStatus } & SupplierTermsData, expectedVersion: number, updatedBy: string, session?: TxSession): Promise<Supplier | null> {
     const current = await this.base.findById(id, sysCtx(tenantId), asSession(session));
     if (!current) return null;
     const set: Record<string, unknown> = { updatedBy, updatedAt: new Date() };
@@ -161,6 +171,10 @@ export class MongoSupplierStore implements ISupplierStore {
     put('address', patch.address === undefined ? undefined : (patch.address?.trim() || null));
     put('taxId', patch.taxId === undefined ? undefined : (patch.taxId?.trim() || null));
     put('status', patch.status);
+    put('paymentTermsDays', patch.paymentTermsDays);
+    put('currency', patch.currency);
+    put('leadTimeDays', patch.leadTimeDays);
+    put('contacts', patch.contacts);
     try {
       const q = SupplierModel.findOneAndUpdate(
         { tenantId, _id: id, version: expectedVersion },

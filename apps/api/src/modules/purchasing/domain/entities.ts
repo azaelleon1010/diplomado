@@ -7,6 +7,14 @@
 
 export type SupplierStatus = 'ACTIVE' | 'INACTIVE';
 
+export interface SupplierContact {
+  name: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  isPrimary?: boolean;
+}
+
 export interface Supplier {
   _id: string;
   tenantId: string;
@@ -17,6 +25,11 @@ export interface Supplier {
   phone?: string;
   address?: string;
   taxId?: string;
+  /** Commercial terms used as defaults by purchase orders and payables. */
+  paymentTermsDays: number;
+  currency: string;
+  leadTimeDays?: number;
+  contacts: SupplierContact[];
   status: SupplierStatus;
   createdAt: Date;
   updatedAt: Date;

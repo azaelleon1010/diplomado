@@ -9,8 +9,16 @@ import type {
   PurchaseOrderLine,
   PurchaseOrderStatus,
   Supplier,
+  SupplierContact,
   SupplierStatus,
 } from './entities';
+
+export interface SupplierTermsData {
+  paymentTermsDays?: number;
+  currency?: string;
+  leadTimeDays?: number | null;
+  contacts?: SupplierContact[];
+}
 
 export interface SupplierFilters {
   search?: string;
@@ -27,8 +35,8 @@ export interface ISupplierStore {
     limit: number;
     totalPages: number;
   }>;
-  create(data: { tenantId: string; code: string; name: string; contactName?: string; email?: string; phone?: string; address?: string; taxId?: string; createdBy: string }, session?: TxSession): Promise<Supplier>;
-  update(tenantId: string, id: string, patch: { name?: string; contactName?: string | null; email?: string | null; phone?: string | null; address?: string | null; taxId?: string | null; status?: SupplierStatus }, expectedVersion: number, updatedBy: string, session?: TxSession): Promise<Supplier | null>;
+  create(data: { tenantId: string; code: string; name: string; contactName?: string; email?: string; phone?: string; address?: string; taxId?: string; createdBy: string } & SupplierTermsData, session?: TxSession): Promise<Supplier>;
+  update(tenantId: string, id: string, patch: { name?: string; contactName?: string | null; email?: string | null; phone?: string | null; address?: string | null; taxId?: string | null; status?: SupplierStatus } & SupplierTermsData, expectedVersion: number, updatedBy: string, session?: TxSession): Promise<Supplier | null>;
 }
 
 export interface OrderFilters {
