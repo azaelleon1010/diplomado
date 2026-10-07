@@ -4,6 +4,7 @@
  * accepted from the client; they come from the authenticated context.
  */
 import { z } from 'zod';
+import { reportFormatSchema } from '../../../shared/reports/http';
 
 const statusRule = z.enum(['ACTIVE', 'INACTIVE']);
 
@@ -166,4 +167,24 @@ export const movementQuerySchema = z.object({
   sourceType: z.string().trim().max(40).optional(),
   sourceId: idRule.optional(),
   postingId: idRule.optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Reports (CSV / PDF) — same filters as the list endpoints, no pagination cap.
+// ---------------------------------------------------------------------------
+
+export const stockReportQuerySchema = z.object({
+  format: reportFormatSchema,
+  warehouseId: idRule.optional(),
+  categoryId: idRule.optional(),
+  status: statusRule.optional(),
+  nonZero: z.enum(['true', 'false']).optional().transform((v) => (v === undefined ? true : v === 'true')),
+});
+
+export const movementsReportQuerySchema = z.object({
+  format: reportFormatSchema,
+  productId: idRule.optional(),
+  warehouseId: idRule.optional(),
+  type: z.enum(['RECEIPT', 'ISSUE', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT', 'TRANSFER_IN', 'TRANSFER_OUT']).optional(),
+  sourceType: z.string().trim().max(40).optional(),
 });

@@ -6,11 +6,14 @@
  */
 import { Router } from 'express';
 import type { InventoryDeps } from '../application/usecases';
+import type { InventoryReportDeps } from '../application/reports';
 import { PERMISSIONS } from '../../identity/domain/permissions';
-import { MongoAuditSink } from '../../identity/infrastructure/repositories';
+import { MongoAuditSink, MongoUserStore } from '../../identity/infrastructure/repositories';
+import { MongoTenantStore } from '../../tenant/infrastructure/repositories';
 import { MongoCategoryStore, MongoProductStore, MongoWarehouseStore } from '../infrastructure/repositories';
 import { createInventoryController } from './controllers';
 import { createStockController } from './stockController';
+import { createInventoryReportsController } from './reportsController';
 import type { StockDeps } from '../application/stock';
 import { MongoStockLedger } from '../infrastructure/stockRepository';
 import { MongoIdempotencyStore } from '../../../shared/idempotency';
@@ -41,11 +44,29 @@ export function buildStockDeps(inventory: InventoryDeps): StockDeps {
   };
 }
 
+/** Report deps reuse the same catalog/ledger stores; users/tenants only resolve display names. */
+export function buildInventoryReportDeps(inventory: InventoryDeps, stock: StockDeps): InventoryReportDeps {
+  return {
+    products: inventory.products,
+    categories: inventory.categories,
+    warehouses: inventory.warehouses,
+    ledger: stock.ledger,
+    users: new MongoUserStore(),
+    tenants: new MongoTenantStore(),
+  };
+}
+
 /** Mounted at /api/v1/inventory. */
-export function createInventoryRouter(deps: InventoryDeps, auth: AuthMiddlewareDeps, stockDeps: StockDeps = buildStockDeps(deps)) {
+export function createInventoryRouter(
+  deps: InventoryDeps,
+  auth: AuthMiddlewareDeps,
+  stockDeps: StockDeps = buildStockDeps(deps),
+  reportDeps: InventoryReportDeps = buildInventoryReportDeps(deps, stockDeps),
+) {
   const router = Router();
   const controller = createInventoryController(deps);
   const stock = createStockController(stockDeps);
+  const reports = createInventoryReportsController(reportDeps);
   const guard = [authenticate(auth), requireTenant()];
   const read = requirePermission(auth, PERMISSIONS.INVENTORY_READ);
   const create = requirePermission(auth, PERMISSIONS.INVENTORY_CREATE);
@@ -80,6 +101,10 @@ export function createInventoryRouter(deps: InventoryDeps, auth: AuthMiddlewareD
     stock.postMovements,
   );
   router.post('/transfers', ...guard, requirePermission(auth, PERMISSIONS.INVENTORY_TRANSFER), stock.postTransfer);
+
+  // Reports: same data and permission as the screens they summarize.
+  router.get('/reports/stock', ...guard, read, reports.stockReport);
+  router.get('/reports/movements', ...guard, read, reports.movementsReport);
 
   return router;
 }

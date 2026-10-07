@@ -269,6 +269,22 @@ export const openApiSpec = {
         responses: { '201': { description: 'Posting created' }, '200': { description: 'Idempotent replay' }, '400': { description: 'Validation error' }, '403': { description: 'Missing inventory.transfer' }, '409': { description: 'INSUFFICIENT_STOCK or IDEMPOTENCY_CONFLICT' } },
       },
     },
+    '/inventory/reports/stock': {
+      get: {
+        tags: ['inventory'],
+        summary: 'Stock report as a file download (format=csv|pdf; filters: warehouseId, categoryId, status, nonZero)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'CSV or PDF file' }, '400': { description: 'Validation error (format is required)' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing inventory.read' } },
+      },
+    },
+    '/inventory/reports/movements': {
+      get: {
+        tags: ['inventory'],
+        summary: 'Stock movements report as a file download (format=csv|pdf; filters: productId, warehouseId, type, sourceType)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'CSV or PDF file' }, '400': { description: 'Validation error (format is required)' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing inventory.read' } },
+      },
+    },
     '/maintenance/assets': {
       get: {
         tags: ['maintenance'],

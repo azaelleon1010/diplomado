@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native-web';
 import { useTheme } from '../theme/Theme';
 import { useAuth } from '../auth/AuthContext';
-import { friendlyMessage, inventoryApi, loadSession, stockApi, type Product } from '../lib/api';
+import { downloadReport, friendlyMessage, inventoryApi, loadSession, stockApi, type Product } from '../lib/api';
 import {
   STOCK_MOVEMENT_LABELS,
   STOCK_MOVEMENT_PERMISSION,
@@ -81,6 +81,7 @@ export function StockScreen() {
   const [warehouseForm, setWarehouseForm] = useState<WarehouseForm>({ code: '', name: '', address: '' });
   // One key per intended operation; any edit means a new operation.
   const [operationKey, setOperationKey] = useState(() => newIdempotencyKey('web'));
+  const [downloadingReport, setDownloadingReport] = useState<'stock' | 'movements' | null>(null);
 
   const loadData = useCallback(async () => {
     const session = loadSession();
@@ -237,6 +238,36 @@ export function StockScreen() {
     });
   };
 
+  const exportStockReport = async (format: 'csv' | 'pdf') => {
+    const session = loadSession();
+    if (!session?.accessToken) return setError('No hay una sesión activa.');
+    setDownloadingReport('stock');
+    setError('');
+    try {
+      const qs = new URLSearchParams({ format, ...(warehouseFilter ? { warehouseId: warehouseFilter } : {}) });
+      await downloadReport(`/api/v1/inventory/reports/stock?${qs.toString()}`, session.accessToken);
+    } catch (err) {
+      setError(friendlyMessage(err));
+    } finally {
+      setDownloadingReport(null);
+    }
+  };
+
+  const exportMovementsReport = async (format: 'csv' | 'pdf') => {
+    const session = loadSession();
+    if (!session?.accessToken) return setError('No hay una sesión activa.');
+    setDownloadingReport('movements');
+    setError('');
+    try {
+      const qs = new URLSearchParams({ format, ...(warehouseFilter ? { warehouseId: warehouseFilter } : {}) });
+      await downloadReport(`/api/v1/inventory/reports/movements?${qs.toString()}`, session.accessToken);
+    } catch (err) {
+      setError(friendlyMessage(err));
+    } finally {
+      setDownloadingReport(null);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -360,7 +391,7 @@ export function StockScreen() {
         </TouchableOpacity>
       </View>
 
-      <Section title="Existencias" theme={t}>
+      <Section title="Existencias" actions={<ExportButtons onExport={(f) => void exportStockReport(f)} disabled={downloadingReport !== null} theme={t} />} theme={t}>
         {visibleBalances.length === 0 ? (
           <Empty text={activeWarehouses.length === 0 ? 'Crea un almacén para empezar a registrar existencias.' : 'No hay existencias con los filtros actuales.'} theme={t} />
         ) : (
@@ -381,7 +412,7 @@ export function StockScreen() {
         )}
       </Section>
 
-      <Section title={`Movimientos recientes (${movements.length} de ${movementTotal})`} theme={t}>
+      <Section title={`Movimientos recientes (${movements.length} de ${movementTotal})`} actions={<ExportButtons onExport={(f) => void exportMovementsReport(f)} disabled={downloadingReport !== null} theme={t} />} theme={t}>
         {movements.length === 0 ? (
           <Empty text="Aún no hay movimientos." theme={t} />
         ) : (
@@ -478,11 +509,28 @@ function FormActions({ saving, onCancel, onSubmit, label, theme }: { saving: boo
   );
 }
 
-function Section({ title, children, theme }: { title: string; children: React.ReactNode; theme: ThemeT }) {
+function Section({ title, actions, children, theme }: { title: string; actions?: React.ReactNode; children: React.ReactNode; theme: ThemeT }) {
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: theme.semanticColors.textPrimary }]}>{title}</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: theme.semanticColors.textPrimary }]}>{title}</Text>
+        {actions ? <View style={styles.sectionActions}>{actions}</View> : null}
+      </View>
       {children}
+    </View>
+  );
+}
+
+function ExportButtons({ onExport, disabled, theme }: { onExport: (format: 'csv' | 'pdf') => void; disabled: boolean; theme: ThemeT }) {
+  const c = theme.semanticColors;
+  return (
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      <TouchableOpacity disabled={disabled} onPress={() => onExport('csv')} style={[styles.exportButton, { borderColor: c.borderStrong, opacity: disabled ? 0.6 : 1 }]}>
+        <Text style={[styles.exportButtonText, { color: c.textPrimary }]}>Exportar CSV</Text>
+      </TouchableOpacity>
+      <TouchableOpacity disabled={disabled} onPress={() => onExport('pdf')} style={[styles.exportButton, { borderColor: c.borderStrong, opacity: disabled ? 0.6 : 1 }]}>
+        <Text style={[styles.exportButtonText, { color: c.textPrimary }]}>Exportar PDF</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -544,7 +592,11 @@ const styles = StyleSheet.create({
   search: { flex: 1, minWidth: 220 },
   link: { fontSize: 14, fontWeight: '700' },
   section: { gap: 12 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
   sectionTitle: { fontSize: 18, fontWeight: '800' },
+  sectionActions: { flexDirection: 'row' },
+  exportButton: { minHeight: 36, paddingHorizontal: 12, borderWidth: 1, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  exportButtonText: { fontSize: 13, fontWeight: '700' },
   empty: { borderWidth: 1, borderRadius: 14, padding: 28, alignItems: 'center' },
   table: { borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
   row: { flexDirection: 'row' },
