@@ -51,6 +51,8 @@ export interface PurchaseOrderDoc extends mongoose.Document {
   expectedDate?: string;
   notes?: string;
   receivedAt?: string;
+  approvedBy?: string;
+  approvedAt?: Date;
   lines: Array<{ productId: string; quantity: number; unitCost: number; quantityReceived: number }>;
   subtotal: number;
   createdBy: string;
@@ -84,6 +86,8 @@ const purchaseOrderSchema = new Schema<PurchaseOrderDoc>(
     expectedDate: { type: String, trim: true },
     notes: { type: String, trim: true, maxlength: 2000 },
     receivedAt: { type: String, trim: true },
+    approvedBy: { type: String, trim: true },
+    approvedAt: { type: Date },
     lines: { type: [purchaseLineSchema], default: [] },
     subtotal: { type: Number, required: true, default: 0, min: 0 },
   } as Record<string, unknown>,

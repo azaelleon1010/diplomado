@@ -65,5 +65,10 @@ export interface IPurchaseOrderStore {
   countBySupplier(tenantId: string, supplierId: string, session?: TxSession): Promise<number>;
   create(data: CreatePurchaseOrderData, session?: TxSession): Promise<PurchaseOrder>;
   update(tenantId: string, id: string, patch: UpdatePurchaseOrderData, expectedVersion: number, updatedBy: string, session?: TxSession): Promise<PurchaseOrder | null>;
+  /**
+   * Adds received quantities (deltas by productId) and sets the derived
+   * status, guarded by expectedVersion. Used only by goods receipts.
+   */
+  applyReceipt(tenantId: string, id: string, receivedDelta: Record<string, number>, status: PurchaseOrderStatus, expectedVersion: number, updatedBy: string, session: TxSession): Promise<PurchaseOrder | null>;
   transition(tenantId: string, id: string, to: PurchaseOrderStatus, expectedVersion: number, updatedBy: string, extra?: { lines?: PurchaseOrderLine[] }, session?: TxSession): Promise<PurchaseOrder | null>;
 }

@@ -121,6 +121,9 @@ function makeDeps() {
       orders.set(oid, next);
       return next;
     },
+    applyReceipt: async () => {
+      throw new Error('not used: receipts are covered by integration tests');
+    },
     transition: async (tenantId, oid, to, expectedVersion, _updatedBy, extra) => {
       const o = orders.get(oid);
       if (!o || o.tenantId !== tenantId) return null;
@@ -208,7 +211,7 @@ describe('purchasing use cases (fake stores)', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND', statusCode: 404 });
   });
 
-  it('runs send → approve → receive with quantity checks', async () => {
+  it('runs send → approve → cancel and rejects receptions as transitions', async () => {
     const { deps } = makeDeps();
     const supplier = await createSupplier(ctx, { code: 'TN-01', name: 'T' }, deps);
     const order = await createPurchaseOrder(
@@ -216,39 +219,24 @@ describe('purchasing use cases (fake stores)', () => {
       { folio: 'OC-1', supplierId: supplier._id, lines: [{ productId: 'prod-1', quantity: 10, unitCost: 5 }] },
       deps,
     );
-    await expect(transitionPurchaseOrder(ctx, order._id, 'APPROVED', 1, undefined, deps)).rejects.toMatchObject({
+    await expect(transitionPurchaseOrder(ctx, order._id, 'APPROVED', 1, deps)).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
       statusCode: 400,
     });
-    const sent = await transitionPurchaseOrder(ctx, order._id, 'SENT', 1, undefined, deps);
+    const sent = await transitionPurchaseOrder(ctx, order._id, 'SENT', 1, deps);
     expect(sent.status).toBe('SENT');
-    const approved = await transitionPurchaseOrder(ctx, order._id, 'APPROVED', 2, undefined, deps);
+    const approved = await transitionPurchaseOrder(ctx, order._id, 'APPROVED', 2, deps);
     expect(approved.status).toBe('APPROVED');
-    // Over-reception and full-via-partial are rejected.
-    await expect(
-      transitionPurchaseOrder(ctx, order._id, 'RECEIVED', 3, { lines: [{ productId: 'prod-1', quantityReceived: 11 }] }, deps),
-    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', statusCode: 400 });
-    const partial = await transitionPurchaseOrder(
-      ctx,
-      order._id,
-      'PARTIALLY_RECEIVED',
-      3,
-      { lines: [{ productId: 'prod-1', quantityReceived: 4 }] },
-      deps,
-    );
-    expect(partial.status).toBe('PARTIALLY_RECEIVED');
-    expect(partial.lines[0]?.quantityReceived).toBe(4);
-    const done = await transitionPurchaseOrder(
-      ctx,
-      order._id,
-      'RECEIVED',
-      4,
-      { lines: [{ productId: 'prod-1', quantityReceived: 10 }] },
-      deps,
-    );
-    expect(done.status).toBe('RECEIVED');
-    expect(done.receivedAt).toBeTruthy();
-    await expect(transitionPurchaseOrder(ctx, order._id, 'CANCELLED', 5, undefined, deps)).rejects.toMatchObject({
+    // Receptions are goods receipts (inventory ledger), never manual transitions.
+    for (const to of ['RECEIVED', 'PARTIALLY_RECEIVED'] as const) {
+      await expect(transitionPurchaseOrder(ctx, order._id, to, 3, deps)).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        fields: { use: 'receipts' },
+      });
+    }
+    const cancelled = await transitionPurchaseOrder(ctx, order._id, 'CANCELLED', 3, deps);
+    expect(cancelled.status).toBe('CANCELLED');
+    await expect(transitionPurchaseOrder(ctx, order._id, 'CANCELLED', 4, deps)).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
       statusCode: 400,
     });
@@ -264,7 +252,7 @@ describe('purchasing use cases (fake stores)', () => {
     );
     const edited = await updatePurchaseOrder(ctx, order._id, { notes: 'Urgente', expectedVersion: 1 }, deps);
     expect(edited.subtotal).toBe(50);
-    await transitionPurchaseOrder(ctx, order._id, 'SENT', 2, undefined, deps);
+    await transitionPurchaseOrder(ctx, order._id, 'SENT', 2, deps);
     await expect(updatePurchaseOrder(ctx, order._id, { notes: 'X', expectedVersion: 3 }, deps)).rejects.toMatchObject({
       code: 'VALIDATION_ERROR',
       statusCode: 400,

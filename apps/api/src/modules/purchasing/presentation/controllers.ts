@@ -17,11 +17,14 @@ import {
   updatePurchaseOrder,
   updateSupplier,
 } from '../application/usecases';
+import { getGoodsReceipt, listGoodsReceipts, receivePurchaseOrder, type ReceiptDeps } from '../application/receipts';
 import {
   createPurchaseOrderSchema,
   createSupplierSchema,
   purchaseOrderQuerySchema,
   purchasingIdParamSchema,
+  receiptQuerySchema,
+  receiveOrderSchema,
   supplierQuerySchema,
   transitionPurchaseOrderSchema,
   updatePurchaseOrderSchema,
@@ -158,7 +161,7 @@ export function createPurchasingController(deps: PurchasingDeps) {
         ok(
           res,
           req,
-          await transitionPurchaseOrder(ctx, params.id, dto.to, dto.expectedVersion, dto.lines === undefined ? undefined : { lines: dto.lines }, deps),
+          await transitionPurchaseOrder(ctx, params.id, dto.to, dto.expectedVersion, deps),
         );
       } catch (err) {
         next(err);
@@ -169,6 +172,40 @@ export function createPurchasingController(deps: PurchasingDeps) {
       try {
         const params = purchasingIdParamSchema.parse(req.params);
         ok(res, req, await cancelPurchaseOrder(actorOf(req), params.id, deps));
+      } catch (err) {
+        next(err);
+      }
+    },
+  };
+}
+
+export function createReceiptController(deps: ReceiptDeps) {
+  return {
+    async receive(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const params = purchasingIdParamSchema.parse(req.params);
+        const dto = receiveOrderSchema.parse(req.body);
+        const result = await receivePurchaseOrder(actorOf(req), params.id, dto, deps);
+        ok(res, req, result, result.replayed ? 200 : 201);
+      } catch (err) {
+        next(err);
+      }
+    },
+
+    async list(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const q = receiptQuerySchema.parse(req.query);
+        const result = await listGoodsReceipts(actorOf(req), { purchaseOrderId: q.purchaseOrderId, supplierId: q.supplierId, warehouseId: q.warehouseId }, q.page, q.limit, deps);
+        ok(res, req, result.data, 200, pagedMeta(result));
+      } catch (err) {
+        next(err);
+      }
+    },
+
+    async get(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const params = purchasingIdParamSchema.parse(req.params);
+        ok(res, req, await getGoodsReceipt(actorOf(req), params.id, deps));
       } catch (err) {
         next(err);
       }

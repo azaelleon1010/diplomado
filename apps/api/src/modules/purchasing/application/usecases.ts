@@ -3,8 +3,8 @@
  * No Express, no Mongoose here.
  *
  * Products always come from the inventory catalog (never duplicated).
- * Reception records received quantities and raises alerts; a future
- * stock-ledger phase will turn receptions into inventory entries.
+ * Receptions are goods receipts that post to the inventory ledger
+ * (application/receipts.ts).
  */
 import { AppError } from '@erp/errors';
 import { sanitizeForAudit } from '../../identity/domain/entities';
@@ -315,53 +315,26 @@ const TRANSITION_ACTIONS = {
   CANCELLED: PURCHASING_ACTIONS.ORDER_CANCELLED,
 } as const;
 
-export interface ReceiveLinesInput {
-  lines: Array<{ productId: string; quantityReceived: number }>;
-}
-
+/**
+ * Manual status changes. Receptions are NOT transitions: they are goods
+ * receipts (application/receipts.ts) that also move inventory.
+ */
 export async function transitionPurchaseOrder(
   ctx: PurchasingActor,
   id: string,
   to: PurchaseOrderStatus,
   expectedVersion: number,
-  receive: ReceiveLinesInput | undefined,
   deps: PurchasingDeps,
 ) {
+  if (to === 'RECEIVED' || to === 'PARTIALLY_RECEIVED') {
+    throw invalid('Receptions are registered as goods receipts: POST /api/v1/purchasing/orders/:id/receipts', { use: 'receipts' });
+  }
   const before = await deps.orders.findById(ctx.tenantId, id);
   if (!before) throw notFound('Purchase order');
   if (!TRANSITIONS[before.status].includes(to)) {
     throw invalid(`Cannot transition order from ${before.status} to ${to}`, { from: before.status, to });
   }
-  let lines: Array<{ productId: string; quantity: number; unitCost: number; quantityReceived: number }> | undefined;
-  if (to === 'RECEIVED' || to === 'PARTIALLY_RECEIVED') {
-    if (!receive || receive.lines.length === 0) {
-      throw invalid('Reception requires received quantities per line');
-    }
-    const byProduct = new Map(before.lines.map((l) => [l.productId, l]));
-    lines = [];
-    for (const item of receive.lines) {
-      const base = byProduct.get(item.productId);
-      if (!base) throw invalid('Received product is not part of the order', { productId: item.productId });
-      if (!(item.quantityReceived > 0)) {
-        throw invalid('Received quantity must be greater than 0', { productId: item.productId });
-      }
-      if (item.quantityReceived > base.quantity) {
-        throw invalid('Received quantity exceeds ordered quantity', { productId: item.productId });
-      }
-      lines.push({ productId: base.productId, quantity: base.quantity, unitCost: base.unitCost, quantityReceived: item.quantityReceived });
-    }
-    const fullyReceived = before.lines.every((l) => {
-      const r = lines?.find((x) => x.productId === l.productId);
-      return r !== undefined && r.quantityReceived >= l.quantity;
-    });
-    if (to === 'RECEIVED' && !fullyReceived) {
-      throw invalid('Full reception requires all lines received in full; use PARTIALLY_RECEIVED otherwise');
-    }
-    if (to === 'PARTIALLY_RECEIVED' && fullyReceived) {
-      throw invalid('All lines received in full; use RECEIVED instead');
-    }
-  }
-  const updated = await deps.orders.transition(ctx.tenantId, id, to, expectedVersion, ctx.userId, lines === undefined ? undefined : { lines });
+  const updated = await deps.orders.transition(ctx.tenantId, id, to, expectedVersion, ctx.userId);
   if (!updated) throw notFound('Purchase order');
   await audit(deps, {
     tenantId: ctx.tenantId,
@@ -380,5 +353,5 @@ export async function transitionPurchaseOrder(
 export async function cancelPurchaseOrder(ctx: PurchasingActor, id: string, deps: PurchasingDeps) {
   const order = await deps.orders.findById(ctx.tenantId, id);
   if (!order) throw notFound('Purchase order');
-  return transitionPurchaseOrder(ctx, id, 'CANCELLED', order.version, undefined, deps);
+  return transitionPurchaseOrder(ctx, id, 'CANCELLED', order.version, deps);
 }

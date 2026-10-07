@@ -47,8 +47,11 @@ export interface PurchaseOrder {
   expectedDate?: string;
   notes?: string;
   receivedAt?: string;
+  approvedBy?: string;
+  approvedAt?: Date;
   lines: PurchaseOrderLine[];
   subtotal: number;
+  createdBy?: string;
   createdAt: Date;
   updatedAt: Date;
   version: number;
@@ -64,4 +67,5 @@ export const PURCHASING_ACTIONS = {
   ORDER_APPROVED: 'purchasing.order.approved',
   ORDER_RECEIVED: 'purchasing.order.received',
   ORDER_CANCELLED: 'purchasing.order.cancelled',
+  RECEIPT_POSTED: 'purchasing.receipt.posted',
 } as const;

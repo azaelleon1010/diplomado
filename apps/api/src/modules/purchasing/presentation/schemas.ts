@@ -93,6 +93,33 @@ export const purchaseOrderQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
+export const receiveOrderSchema = z
+  .object({
+    warehouseId: z.string().trim().min(1).max(120),
+    lines: z
+      .array(
+        z
+          .object({
+            productId: z.string().trim().min(1).max(120),
+            quantity: z.number().positive().max(1_000_000_000),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(200),
+    notes: z.string().trim().max(1000).optional(),
+    idempotencyKey: z.string().trim().regex(/^[A-Za-z0-9._:-]{8,128}$/, 'idempotencyKey must be 8-128 chars: letters, digits, . _ : -'),
+  })
+  .strict();
+
+export const receiptQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  purchaseOrderId: z.string().trim().min(1).max(120).optional(),
+  supplierId: z.string().trim().min(1).max(120).optional(),
+  warehouseId: z.string().trim().min(1).max(120).optional(),
+});
+
 export const purchasingIdParamSchema = z.object({
   id: z.string().trim().min(1).max(120),
 });

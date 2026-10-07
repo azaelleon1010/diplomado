@@ -438,15 +438,47 @@ export const openApiSpec = {
         tags: ['purchasing'],
         summary: 'Cancel order (logical cancel)',
         security: [{ bearerAuth: [] }],
-        responses: { '200': { description: 'Order cancelled' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing purchasing.delete' }, '404': { description: 'Not found' }, '409': { description: 'Order cannot be cancelled' } },
+        responses: { '200': { description: 'Order cancelled' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing purchasing.cancel' }, '404': { description: 'Not found' }, '409': { description: 'Order cannot be cancelled' } },
       },
     },
     '/purchasing/orders/{id}/transition': {
       post: {
         tags: ['purchasing'],
-        summary: 'Transition order state (send, approve, receive, cancel)',
+        summary: 'Manual state change: SENT (purchasing.update), APPROVED (purchasing.approve), CANCELLED (purchasing.cancel). Receptions use /receipts',
         security: [{ bearerAuth: [] }],
-        responses: { '200': { description: 'Order transitioned' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing purchasing.update' }, '404': { description: 'Not found' }, '409': { description: 'Invalid transition or version conflict' } },
+        responses: { '200': { description: 'Order transitioned' }, '400': { description: 'Invalid transition, or RECEIVED/PARTIALLY_RECEIVED requested (fields.use = receipts)' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing the permission for the target state' }, '404': { description: 'Not found' }, '409': { description: 'Version conflict' } },
+      },
+    },
+    '/purchasing/orders/{id}/receipts': {
+      post: {
+        tags: ['purchasing'],
+        summary: 'Register a goods receipt: posts RECEIPT movements at the order cost, updates received quantities and status. Body: { warehouseId, lines[{productId, quantity}], notes?, idempotencyKey }',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '201': { description: '{ receipt, order, replayed:false }' },
+          '200': { description: 'Idempotent replay { replayed:true }' },
+          '400': { description: 'Order not receivable, product not in order, or quantity above pending' },
+          '401': { description: 'Unauthorized' },
+          '403': { description: 'Missing purchasing.receive' },
+          '404': { description: 'Order not found in tenant' },
+          '409': { description: 'IDEMPOTENCY_CONFLICT or concurrent update (retry)' },
+        },
+      },
+    },
+    '/purchasing/receipts': {
+      get: {
+        tags: ['purchasing'],
+        summary: 'List goods receipts (filters: purchaseOrderId, supplierId, warehouseId)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Receipts (paginated, newest first)' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing purchasing.read' } },
+      },
+    },
+    '/purchasing/receipts/{id}': {
+      get: {
+        tags: ['purchasing'],
+        summary: 'Get goods receipt by id (tenant-scoped)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Receipt' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing purchasing.read' }, '404': { description: 'Not found' } },
       },
     },
     '/hr/departments': {

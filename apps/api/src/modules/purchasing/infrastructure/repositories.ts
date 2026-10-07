@@ -68,8 +68,11 @@ function toOrder(doc: PurchaseOrderDoc): PurchaseOrder {
     expectedDate: doc.expectedDate,
     notes: doc.notes,
     receivedAt: doc.receivedAt,
+    approvedBy: doc.approvedBy,
+    approvedAt: doc.approvedAt,
     lines: (doc.lines ?? []).map(toLine),
     subtotal: doc.subtotal,
+    createdBy: doc.createdBy,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
     version: doc.version,
@@ -283,11 +286,42 @@ export class MongoPurchaseOrderStore implements IPurchaseOrderStore {
     }
   }
 
+  async applyReceipt(tenantId: string, id: string, receivedDelta: Record<string, number>, status: PurchaseOrderStatus, expectedVersion: number, updatedBy: string, session: TxSession): Promise<PurchaseOrder | null> {
+    const s = asSession(session);
+    try {
+      const currentQ = PurchaseOrderModel.findOne({ tenantId, _id: id });
+      if (s) currentQ.session(s);
+      const current = await currentQ.exec();
+      if (!current) return null;
+      const lines = current.lines.map((line) => ({
+        productId: line.productId,
+        quantity: line.quantity,
+        unitCost: line.unitCost,
+        quantityReceived: Math.round(((line.quantityReceived ?? 0) + (receivedDelta[line.productId] ?? 0)) * 1000) / 1000,
+      }));
+      const q = PurchaseOrderModel.findOneAndUpdate(
+        { tenantId, _id: id, version: expectedVersion },
+        { $set: { lines, status, receivedAt: new Date().toISOString(), updatedBy, updatedAt: new Date() }, $inc: { version: 1 } },
+        { new: true, runValidators: true },
+      );
+      if (s) q.session(s);
+      const updated = await q.exec();
+      if (!updated) throw mapMongoError(Object.assign(new Error('Version conflict'), { name: 'VersionError' }));
+      return toOrder(updated);
+    } catch (err) {
+      throw mapMongoError(err);
+    }
+  }
+
   async transition(tenantId: string, id: string, to: PurchaseOrderStatus, expectedVersion: number, updatedBy: string, extra?: { lines?: PurchaseOrderLine[] }, session?: TxSession): Promise<PurchaseOrder | null> {
     const current = await this.base.findById(id, sysCtx(tenantId), asSession(session));
     if (!current) return null;
     const now = new Date().toISOString();
     const set: Record<string, unknown> = { status: to, updatedBy, updatedAt: new Date() };
+    if (to === 'APPROVED') {
+      set.approvedBy = updatedBy;
+      set.approvedAt = new Date();
+    }
     if (to === 'RECEIVED' || to === 'PARTIALLY_RECEIVED') {
       set.receivedAt = now;
       if (extra?.lines !== undefined) {

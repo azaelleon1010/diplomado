@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { __resetConfigForTests } from '../../packages/config/src/index';
 import { connectMongo, disconnectMongo } from '../../packages/database/src/connection';
 import { ensureIndexes } from '../../packages/database/src/indexes';
@@ -14,7 +14,7 @@ import { CategoryModel, ProductModel } from '../../apps/api/src/modules/inventor
 import { PurchaseOrderModel, SupplierModel } from '../../apps/api/src/modules/purchasing/infrastructure/models';
 import type { Express } from 'express';
 
-let mongod: MongoMemoryServer;
+let mongod: MongoMemoryReplSet;
 let app: Express;
 
 const TENANT_A = 'TENANT_A';
@@ -26,6 +26,7 @@ let adminAccessB = '';
 let supplierIdA = '';
 let productIdA = '';
 let materialIdA = '';
+let warehouseIdA = '';
 let orderIdA = '';
 let orderVersionA = 0;
 
@@ -39,7 +40,8 @@ describe('Purchasing integration: suppliers + orders + isolation + permissions +
     if (process.env.TEST_MONGO_URI) {
       process.env.MONGODB_URI = process.env.TEST_MONGO_URI;
     } else {
-      mongod = await MongoMemoryServer.create();
+      // Replica set: goods receipts run in a MongoDB transaction (as on Atlas).
+      mongod = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
       process.env.MONGODB_URI = mongod.getUri();
     }
     process.env.MONGODB_DATABASE = 'test_purchasing';
@@ -74,7 +76,7 @@ describe('Purchasing integration: suppliers + orders + isolation + permissions +
     await deps.tenants.create({ tenantId: TENANT_B, name: 'Tenant B', slug: 'tenant-b-purchasing-test', createdBy: 'test' });
     app = createApp(deps);
 
-    const perms = ['purchasing.read', 'purchasing.create', 'purchasing.update', 'purchasing.delete', 'inventory.read', 'inventory.create'];
+    const perms = ['purchasing.read', 'purchasing.create', 'purchasing.update', 'purchasing.delete', 'purchasing.approve', 'purchasing.receive', 'purchasing.cancel', 'inventory.read', 'inventory.create'];
     const adminRoleA = await deps.roles.create({ tenantId: TENANT_A, name: 'admin', permissions: perms, createdBy: 'test' });
     const adminHash = await deps.hasher.hash('AdminPass1');
     const adminA = await deps.users.create({ tenantId: TENANT_A, username: 'admina', email: 'admin@a.mx', passwordHash: adminHash, createdBy: 'test' });
@@ -100,6 +102,8 @@ describe('Purchasing integration: suppliers + orders + isolation + permissions +
     productIdA = fg.body.data._id as string;
     const mat = await request(app).post('/api/v1/inventory/products').set('Authorization', `Bearer ${adminAccessA}`).send({ sku: 'MAT-90', name: 'Acero', unit: 'kg', cost: 5, price: 9, minimumStock: 0 });
     materialIdA = mat.body.data._id as string;
+    const wh = await request(app).post('/api/v1/inventory/warehouses').set('Authorization', 'Bearer ' + adminAccessA).send({ code: 'ALM-PUR', name: 'Recepciones' });
+    warehouseIdA = wh.body.data._id as string;
   }, 90000);
 
   afterAll(async () => {
@@ -209,33 +213,44 @@ describe('Purchasing integration: suppliers + orders + isolation + permissions +
     expect(approved.status).toBe(200);
     orderVersionA = approved.body.data.version as number;
 
-    const over = await request(app)
+    // Receptions are no longer manual transitions (they must move inventory).
+    const legacy = await request(app)
       .post(`/api/v1/purchasing/orders/${orderIdA}/transition`)
       .set('Authorization', `Bearer ${adminAccessA}`)
-      .send({ to: 'RECEIVED', expectedVersion: orderVersionA, lines: [{ productId: productIdA, quantityReceived: 999 }] });
+      .send({ to: 'RECEIVED', expectedVersion: orderVersionA, lines: [{ productId: productIdA, quantityReceived: 10 }] });
+    expect(legacy.status).toBe(400);
+    expect(legacy.body.error.fields.use).toBe('receipts');
+
+    const receive = (lines: Array<{ productId: string; quantity: number }>, key: string) =>
+      request(app)
+        .post(`/api/v1/purchasing/orders/${orderIdA}/receipts`)
+        .set('Authorization', `Bearer ${adminAccessA}`)
+        .send({ warehouseId: warehouseIdA, lines, idempotencyKey: key });
+
+    const over = await receive([{ productId: productIdA, quantity: 999 }], 'purchasing-test-over');
     expect(over.status).toBe(400);
 
-    const partial = await request(app)
-      .post(`/api/v1/purchasing/orders/${orderIdA}/transition`)
-      .set('Authorization', `Bearer ${adminAccessA}`)
-      .send({ to: 'PARTIALLY_RECEIVED', expectedVersion: orderVersionA, lines: [{ productId: productIdA, quantityReceived: 6 }, { productId: materialIdA, quantityReceived: 4 }] });
-    expect(partial.status).toBe(200);
-    expect(partial.body.data.status).toBe('PARTIALLY_RECEIVED');
-    orderVersionA = partial.body.data.version as number;
+    const partial = await receive([{ productId: productIdA, quantity: 6 }, { productId: materialIdA, quantity: 4 }], 'purchasing-test-partial');
+    expect(partial.status).toBe(201);
+    expect(partial.body.data.order.status).toBe('PARTIALLY_RECEIVED');
+    expect(partial.body.data.receipt.folio).toMatch(/^REC-\d{6}$/);
 
-    const done = await request(app)
-      .post(`/api/v1/purchasing/orders/${orderIdA}/transition`)
-      .set('Authorization', `Bearer ${adminAccessA}`)
-      .send({ to: 'RECEIVED', expectedVersion: orderVersionA, lines: [{ productId: productIdA, quantityReceived: 10 }, { productId: materialIdA, quantityReceived: 4 }] });
-    expect(done.status).toBe(200);
-    expect(done.body.data.status).toBe('RECEIVED');
-    expect(done.body.data.receivedAt).toBeTruthy();
+    const done = await receive([{ productId: productIdA, quantity: 4 }], 'purchasing-test-final');
+    expect(done.status).toBe(201);
+    expect(done.body.data.order.status).toBe('RECEIVED');
+    expect(done.body.data.order.receivedAt).toBeTruthy();
+
+    const stock = await request(app)
+      .get(`/api/v1/inventory/stock?warehouseId=${warehouseIdA}`)
+      .set('Authorization', `Bearer ${adminAccessA}`);
+    const byProduct = Object.fromEntries((stock.body.data as Array<{ productId: string; quantity: number }>).map((b) => [b.productId, b.quantity]));
+    expect(byProduct).toMatchObject({ [productIdA]: 10, [materialIdA]: 4 });
   });
 
   it('records audit events for mutations', async () => {
     const created = await AuditEventModel.countDocuments({ tenantId: TENANT_A, action: 'purchasing.order.created' }).exec();
     expect(created).toBeGreaterThan(0);
-    const received = await AuditEventModel.countDocuments({ tenantId: TENANT_A, action: 'purchasing.order.received' }).exec();
+    const received = await AuditEventModel.countDocuments({ tenantId: TENANT_A, action: 'purchasing.receipt.posted' }).exec();
     expect(received).toBeGreaterThan(0);
     const supplierCreated = await AuditEventModel.countDocuments({ tenantId: TENANT_A, action: 'purchasing.supplier.created' }).exec();
     expect(supplierCreated).toBeGreaterThan(0);
