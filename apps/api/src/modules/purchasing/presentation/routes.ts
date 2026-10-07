@@ -7,6 +7,9 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import type { PurchasingDeps } from '../application/usecases';
 import type { ReceiptDeps } from '../application/receipts';
+import type { RequestDeps } from '../application/requests';
+import { MongoPurchaseRequestStore } from '../infrastructure/requestRepository';
+import { createRequestController } from './requestController';
 import type { InventoryDeps } from '../../inventory/application/usecases';
 import { buildInventoryDeps, buildStockDeps } from '../../inventory/presentation/routes';
 import { MongoGoodsReceiptStore } from '../infrastructure/receiptRepository';
@@ -45,6 +48,10 @@ export function buildReceiptDeps(purchasing: PurchasingDeps, inventory: Inventor
   };
 }
 
+export function buildRequestDeps(purchasing: PurchasingDeps): RequestDeps {
+  return { ...purchasing, requests: new MongoPurchaseRequestStore(), sequences: new MongoSequenceStore() };
+}
+
 /** Permission required for each manual status change (body.to). */
 const TRANSITION_PERMISSION: Record<string, string> = {
   SENT: PERMISSIONS.PURCHASING_UPDATE,
@@ -53,10 +60,16 @@ const TRANSITION_PERMISSION: Record<string, string> = {
 };
 
 /** Mounted at /api/v1/purchasing. */
-export function createPurchasingRouter(deps: PurchasingDeps, auth: AuthMiddlewareDeps, receiptDeps: ReceiptDeps = buildReceiptDeps(deps)) {
+export function createPurchasingRouter(
+  deps: PurchasingDeps,
+  auth: AuthMiddlewareDeps,
+  receiptDeps: ReceiptDeps = buildReceiptDeps(deps),
+  requestDeps: RequestDeps = buildRequestDeps(deps),
+) {
   const router = Router();
   const controller = createPurchasingController(deps);
   const receipts = createReceiptController(receiptDeps);
+  const requests = createRequestController(requestDeps);
   const guard = [authenticate(auth), requireTenant()];
   const read = requirePermission(auth, PERMISSIONS.PURCHASING_READ);
   const create = requirePermission(auth, PERMISSIONS.PURCHASING_CREATE);
@@ -87,6 +100,17 @@ export function createPurchasingRouter(deps: PurchasingDeps, auth: AuthMiddlewar
   router.post('/orders/:id/receipts', ...guard, receive, receipts.receive);
   router.get('/receipts', ...guard, read, receipts.list);
   router.get('/receipts/:id', ...guard, read, receipts.get);
+
+  // Purchase requests: need → approval → purchase order.
+  const approve = requirePermission(auth, PERMISSIONS.PURCHASING_APPROVE);
+  router.get('/requests', ...guard, read, requests.list);
+  router.post('/requests', ...guard, create, requests.create);
+  router.get('/requests/:id', ...guard, read, requests.get);
+  router.patch('/requests/:id', ...guard, create, requests.update);
+  router.post('/requests/:id/submit', ...guard, create, requests.submit);
+  router.post('/requests/:id/decision', ...guard, approve, requests.decide);
+  router.post('/requests/:id/cancel', ...guard, cancel, requests.cancel);
+  router.post('/requests/:id/convert', ...guard, create, requests.convert);
 
   return router;
 }

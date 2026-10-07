@@ -62,6 +62,8 @@ export interface PurchaseOrder {
   receivedAt?: string;
   approvedBy?: string;
   approvedAt?: Date;
+  /** Purchase request this order was created from, if any. */
+  requestId?: string;
   lines: PurchaseOrderLine[];
   subtotal: number;
   createdBy?: string;
@@ -80,5 +82,12 @@ export const PURCHASING_ACTIONS = {
   ORDER_APPROVED: 'purchasing.order.approved',
   ORDER_RECEIVED: 'purchasing.order.received',
   ORDER_CANCELLED: 'purchasing.order.cancelled',
+  REQUEST_CREATED: 'purchasing.request.created',
+  REQUEST_UPDATED: 'purchasing.request.updated',
+  REQUEST_SUBMITTED: 'purchasing.request.submitted',
+  REQUEST_APPROVED: 'purchasing.request.approved',
+  REQUEST_REJECTED: 'purchasing.request.rejected',
+  REQUEST_CANCELLED: 'purchasing.request.cancelled',
+  REQUEST_ORDERED: 'purchasing.request.ordered',
   RECEIPT_POSTED: 'purchasing.receipt.posted',
 } as const;

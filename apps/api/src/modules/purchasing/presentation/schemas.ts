@@ -139,6 +139,72 @@ export const receiptQuerySchema = z.object({
   warehouseId: z.string().trim().min(1).max(120).optional(),
 });
 
+const requestLineRule = z
+  .object({
+    productId: z.string().trim().min(1).max(120),
+    quantity: z.number().positive().max(1_000_000_000),
+    notes: z.string().trim().max(300).optional(),
+  })
+  .strict();
+
+export const createRequestSchema = z
+  .object({
+    department: z.string().trim().max(120).optional(),
+    neededBy: z.string().trim().max(30).optional(),
+    justification: z.string().trim().max(1000).optional(),
+    lines: z.array(requestLineRule).min(1).max(200),
+  })
+  .strict();
+
+export const updateRequestSchema = z
+  .object({
+    department: z.string().trim().max(120).nullable().optional(),
+    neededBy: z.string().trim().max(30).nullable().optional(),
+    justification: z.string().trim().max(1000).nullable().optional(),
+    lines: z.array(requestLineRule).min(1).max(200).optional(),
+    expectedVersion: z.number().int().min(0),
+  })
+  .strict();
+
+export const versionSchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
+
+export const decideRequestSchema = z
+  .object({
+    decision: z.enum(['APPROVED', 'REJECTED']),
+    reason: z.string().trim().max(500).optional(),
+    expectedVersion: z.number().int().min(0),
+  })
+  .strict();
+
+export const convertRequestSchema = z
+  .object({
+    supplierId: z.string().trim().min(1).max(120),
+    folio: z.string().trim().min(1).max(32).optional(),
+    expectedDate: z.string().trim().max(30).optional(),
+    notes: z.string().trim().max(2000).optional(),
+    lines: z
+      .array(
+        z
+          .object({
+            productId: z.string().trim().min(1).max(120),
+            unitCost: moneyRule,
+            quantity: z.number().positive().max(1_000_000_000).optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(200),
+    expectedVersion: z.number().int().min(0),
+  })
+  .strict();
+
+export const requestQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'ORDERED', 'CANCELLED']).optional(),
+  mine: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
+});
+
 export const purchasingIdParamSchema = z.object({
   id: z.string().trim().min(1).max(120),
 });

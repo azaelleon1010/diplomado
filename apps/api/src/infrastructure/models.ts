@@ -6,6 +6,7 @@ import { stockModels } from '../modules/inventory/infrastructure/stockModels';
 import { sharedModels } from '../shared/idempotency';
 import { sequenceModels } from '../shared/sequence';
 import { receiptModels } from '../modules/purchasing/infrastructure/receiptRepository';
+import { requestModels } from '../modules/purchasing/infrastructure/requestRepository';
 import { maintenanceModels } from '../modules/maintenance/infrastructure/models';
 import { productionModels } from '../modules/production/infrastructure/models';
 import { purchasingModels } from '../modules/purchasing/infrastructure/models';
@@ -23,6 +24,7 @@ export const applicationModels: Model<unknown>[] = [
   ...productionModels,
   ...purchasingModels,
   ...receiptModels,
+  ...requestModels,
   ...hrModels,
   ...financeModels,
 ];

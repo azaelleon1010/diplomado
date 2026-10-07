@@ -51,6 +51,7 @@ export interface CreatePurchaseOrderData {
   expectedDate?: string;
   notes?: string;
   lines: Array<{ productId: string; quantity: number; unitCost: number }>;
+  requestId?: string;
   createdBy: string;
 }
 

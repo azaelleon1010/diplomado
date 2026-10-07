@@ -61,7 +61,7 @@ function invalid(message: string, fields?: Record<string, unknown>): AppError {
   return new AppError({ code: 'VALIDATION_ERROR', message, statusCode: 400, fields });
 }
 
-async function assertSupplierUsable(deps: PurchasingDeps, tenantId: string, supplierId: string) {
+export async function assertSupplierUsable(deps: PurchasingDeps, tenantId: string, supplierId: string) {
   const supplier = await deps.suppliers.findById(tenantId, supplierId);
   if (!supplier) throw notFound('Supplier');
   if (supplier.status !== 'ACTIVE') {
@@ -70,7 +70,7 @@ async function assertSupplierUsable(deps: PurchasingDeps, tenantId: string, supp
   return supplier;
 }
 
-async function assertCatalogProduct(deps: PurchasingDeps, tenantId: string, productId: string) {
+export async function assertCatalogProduct(deps: PurchasingDeps, tenantId: string, productId: string) {
   const product = await deps.products.findById(tenantId, productId);
   if (!product) throw notFound('Product');
   if (product.status !== 'ACTIVE') {
@@ -79,7 +79,7 @@ async function assertCatalogProduct(deps: PurchasingDeps, tenantId: string, prod
   return product;
 }
 
-function assertLines(lines: Array<{ productId: string; quantity: number; unitCost: number }>): void {
+export function assertLines(lines: Array<{ productId: string; quantity: number; unitCost: number }>): void {
   if (lines.length === 0) {
     throw invalid('Order must contain at least one line');
   }

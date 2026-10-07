@@ -465,6 +465,66 @@ export const openApiSpec = {
         },
       },
     },
+    '/purchasing/requests': {
+      get: {
+        tags: ['purchasing'],
+        summary: 'List purchase requests (filters: status, mine=true)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Requests (paginated)' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing purchasing.read' } },
+      },
+      post: {
+        tags: ['purchasing'],
+        summary: 'Create a purchase request (DRAFT, folio SOL-000001). Body: { department?, neededBy?, justification?, lines[{productId, quantity, notes?}] }',
+        security: [{ bearerAuth: [] }],
+        responses: { '201': { description: 'Request created' }, '400': { description: 'Validation error' }, '403': { description: 'Missing purchasing.create' }, '404': { description: 'Product not found' } },
+      },
+    },
+    '/purchasing/requests/{id}': {
+      get: {
+        tags: ['purchasing'],
+        summary: 'Get purchase request (tenant-scoped)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Request' }, '403': { description: 'Missing purchasing.read' }, '404': { description: 'Not found' } },
+      },
+      patch: {
+        tags: ['purchasing'],
+        summary: 'Edit a DRAFT request (expectedVersion)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Request updated' }, '400': { description: 'Not a draft or invalid lines' }, '403': { description: 'Missing purchasing.create' }, '409': { description: 'Version conflict' } },
+      },
+    },
+    '/purchasing/requests/{id}/submit': {
+      post: {
+        tags: ['purchasing'],
+        summary: 'DRAFT → SUBMITTED. Body: { expectedVersion }',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Submitted' }, '400': { description: 'Invalid transition' }, '403': { description: 'Missing purchasing.create' }, '409': { description: 'Version conflict' } },
+      },
+    },
+    '/purchasing/requests/{id}/decision': {
+      post: {
+        tags: ['purchasing'],
+        summary: 'SUBMITTED → APPROVED | REJECTED (reason required to reject). Body: { decision, reason?, expectedVersion }',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Decided (decidedBy/decidedAt recorded)' }, '400': { description: 'Invalid transition or missing reason' }, '403': { description: 'Missing purchasing.approve' }, '409': { description: 'Version conflict' } },
+      },
+    },
+    '/purchasing/requests/{id}/cancel': {
+      post: {
+        tags: ['purchasing'],
+        summary: 'Cancel a DRAFT, SUBMITTED or APPROVED request',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Cancelled' }, '400': { description: 'Invalid transition' }, '403': { description: 'Missing purchasing.cancel' } },
+      },
+    },
+    '/purchasing/requests/{id}/convert': {
+      post: {
+        tags: ['purchasing'],
+        summary: 'APPROVED → ORDERED: creates a DRAFT purchase order (auto folio OC-000001 if omitted) linked by requestId, atomically. Body: { supplierId, folio?, expectedDate?, notes?, lines[{productId, unitCost, quantity?}], expectedVersion }',
+        security: [{ bearerAuth: [] }],
+        responses: { '201': { description: '{ request, order }' }, '400': { description: 'Not approved, missing prices or unknown product' }, '403': { description: 'Missing purchasing.create' }, '409': { description: 'Duplicate folio or version conflict' } },
+      },
+    },
     '/purchasing/receipts': {
       get: {
         tags: ['purchasing'],
