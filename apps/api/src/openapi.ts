@@ -48,11 +48,18 @@ export const openApiSpec = {
         responses: { '201': { description: 'Company registered, token pair + user' }, '400': { description: 'Validation error' }, '409': { description: 'Duplicate email' } },
       },
     },
+    '/auth/tenant/{slug}': {
+      get: {
+        tags: ['auth'],
+        summary: 'Resolve an ACTIVE company by slug (public; returns tenantId, name, slug)',
+        responses: { '200': { description: 'Company' }, '404': { description: 'TENANT_NOT_FOUND' }, '429': { description: 'RATE_LIMITED' } },
+      },
+    },
     '/auth/login': {
       post: {
         tags: ['auth'],
         summary: 'Login with email + password (optional tenantId)',
-        responses: { '200': { description: 'Token pair + user' }, '401': { description: 'Invalid credentials' } },
+        responses: { '200': { description: 'Token pair + user' }, '401': { description: 'Invalid credentials' }, '429': { description: 'RATE_LIMITED (per account and per client IP)' } },
       },
     },
     '/auth/refresh': {
@@ -208,6 +215,44 @@ export const openApiSpec = {
         summary: 'Deactivate warehouse (logical delete)',
         security: [{ bearerAuth: [] }],
         responses: { '200': { description: 'Warehouse deactivated' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing inventory.delete' }, '404': { description: 'Not found' } },
+      },
+    },
+    '/inventory/stock': {
+      get: {
+        tags: ['inventory'],
+        summary: 'Stock balances per product and warehouse (filters: productId, warehouseId, nonZero)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Balances (paginated)' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing inventory.read' } },
+      },
+    },
+    '/inventory/movements': {
+      get: {
+        tags: ['inventory'],
+        summary: 'Immutable stock movements (filters: productId, warehouseId, type, sourceType, sourceId, postingId)',
+        security: [{ bearerAuth: [] }],
+        responses: { '200': { description: 'Movements (paginated, newest first)' }, '401': { description: 'Unauthorized' }, '403': { description: 'Missing inventory.read' } },
+      },
+      post: {
+        tags: ['inventory'],
+        summary: 'Post receipt/issue/adjustment lines atomically. Body: { lines[], reference?, notes?, idempotencyKey }. Per type: RECEIPT inventory.stock.in, ISSUE inventory.stock.out, ADJUSTMENT_* inventory.stock.adjust',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '201': { description: 'Posting created { postingId, movements, replayed:false }' },
+          '200': { description: 'Retry with the same idempotencyKey and payload { replayed:true }' },
+          '400': { description: 'Validation error, untracked product or inactive warehouse' },
+          '401': { description: 'Unauthorized' },
+          '403': { description: 'Missing the permission for a line type' },
+          '404': { description: 'Product or warehouse not found in tenant' },
+          '409': { description: 'INSUFFICIENT_STOCK (nothing written) or IDEMPOTENCY_CONFLICT' },
+        },
+      },
+    },
+    '/inventory/transfers': {
+      post: {
+        tags: ['inventory'],
+        summary: 'Transfer stock between warehouses in one posting. Body: { productId, fromWarehouseId, toWarehouseId, quantity, reference?, notes?, idempotencyKey }',
+        security: [{ bearerAuth: [] }],
+        responses: { '201': { description: 'Posting created' }, '200': { description: 'Idempotent replay' }, '400': { description: 'Validation error' }, '403': { description: 'Missing inventory.transfer' }, '409': { description: 'INSUFFICIENT_STOCK or IDEMPOTENCY_CONFLICT' } },
       },
     },
     '/maintenance/assets': {
