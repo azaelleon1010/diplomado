@@ -80,13 +80,15 @@ Observación de estructura: cada módulo tiene un único `usecases.ts` (entre ~3
 | POST | `/auth/register` | público — crea Tenant + rol `owner` (ALL_PERMISSIONS) + usuario + membership + sesión en una transacción |
 | POST | `/auth/login` | público — `{email,password,tenantId?}`; con correo en varios tenants exige `tenantId` |
 | POST | `/auth/refresh` | público — rotación |
+| POST | `/auth/forgot-password` | público — siempre responde 200; nunca revela si el correo existe. Envía un enlace de un solo uso por Resend (añadido 2026-10-07) |
+| POST | `/auth/reset-password` | público — consume el enlace (`resetId`+`token`), cambia la contraseña y revoca todas las sesiones del usuario (añadido 2026-10-07) |
 | POST | `/auth/logout` | autenticado |
 | GET | `/me` | autenticado |
 | GET/POST | `/users` | `system.users.read` / `system.users.write` |
 | GET | `/users/:id` | `system.users.read` |
 | POST | `/users/:id/roles` | `system.users.write` |
 
-Faltan: CRUD de roles, desactivar usuarios vía API, recuperación de contraseña, rate limiting de login, organizaciones/sucursales (los campos existen en membership, sin módulo).
+Faltan: CRUD de roles, desactivar usuarios vía API, organizaciones/sucursales (los campos existen en membership, sin módulo). La recuperación de contraseña por correo (Resend) ya existe en backend y Web; falta el deep-link en Mobile para abrir el enlace del correo dentro de la app (hoy Mobile no tiene configurado ningún esquema de enlaces).
 
 ### 3.2 Inventory (`/api/v1/inventory`)
 

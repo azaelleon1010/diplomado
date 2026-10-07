@@ -5,6 +5,7 @@
 import type {
   AuditEvent,
   Membership,
+  PasswordResetToken,
   RefreshSession,
   Role,
   User,
@@ -67,7 +68,24 @@ export interface IUserStore {
   findByEmailAnyTenant(email: string): Promise<UserWithCredentials[]>;
   create(data: CreateUserData, session?: TxSession): Promise<UserWithCredentials>;
   setStatus(tenantId: string, id: string, status: User['status'], updatedBy: string): Promise<UserWithCredentials | null>;
+  /** Password reset only sets the hash; it never touches status or other fields. */
+  setPasswordHash(tenantId: string, id: string, passwordHash: string, updatedBy: string): Promise<UserWithCredentials | null>;
   list(tenantId: string, page: number, limit: number): Promise<{ data: User[]; total: number; page: number; limit: number; totalPages: number }>;
+}
+
+export interface CreatePasswordResetTokenData {
+  tenantId: string;
+  userId: string;
+  resetId: string;
+  tokenHash: string;
+  expiresAt: Date;
+}
+
+export interface IPasswordResetStore {
+  create(data: CreatePasswordResetTokenData): Promise<PasswordResetToken>;
+  /** resetId is the public identifier embedded in the link (lookup is global by design, like refresh sessionId). */
+  findByResetId(resetId: string): Promise<PasswordResetToken | null>;
+  markUsed(resetId: string): Promise<void>;
 }
 
 export interface IRoleStore {

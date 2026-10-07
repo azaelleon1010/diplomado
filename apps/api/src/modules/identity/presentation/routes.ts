@@ -6,10 +6,11 @@ import { Router } from 'express';
 import { getConfig } from '@erp/config';
 import { clientIp, createRateLimiter, loginAccountKey } from '../../../middleware/rateLimit';
 import type { RegisterDeps } from '../application/usecases';
+import type { PasswordResetDeps } from '../application/passwordReset';
 import type { ITenantStore } from '../../tenant/domain/ports';
 import { PERMISSIONS } from '../domain/permissions';
 import { BcryptHasher } from '../infrastructure/hasher';
-import { MongoAuditSink, MongoMembershipStore, MongoRoleStore, MongoSessionStore, MongoUserStore } from '../infrastructure/repositories';
+import { MongoAuditSink, MongoMembershipStore, MongoPasswordResetStore, MongoRoleStore, MongoSessionStore, MongoUserStore } from '../infrastructure/repositories';
 import { MongoTenantStore } from '../../tenant/infrastructure/repositories';
 import { JwtIssuer } from '../infrastructure/tokens';
 import { createAuthController, createUsersController } from './controllers';
@@ -17,7 +18,7 @@ import { authenticate, requirePermission, requireTenant, type AuthMiddlewareDeps
 import { ResendEmailProvider } from '../../notifications/infrastructure/resend';
 import type { IEmailProvider } from '../../notifications/domain/ports';
 
-export function buildIdentityDeps(emailProvider: IEmailProvider = new ResendEmailProvider()): RegisterDeps {
+export function buildIdentityDeps(emailProvider: IEmailProvider = new ResendEmailProvider()): PasswordResetDeps {
   const users = new MongoUserStore();
   const roles = new MongoRoleStore();
   const memberships = new MongoMembershipStore();
@@ -34,6 +35,7 @@ export function buildIdentityDeps(emailProvider: IEmailProvider = new ResendEmai
     hasher: new BcryptHasher(),
     tokens: new JwtIssuer(),
     emailProvider,
+    resetTokens: new MongoPasswordResetStore(),
   };
 }
 
@@ -48,8 +50,8 @@ export function buildAuthMiddleware(deps: RegisterDeps): AuthMiddlewareDeps {
   };
 }
 
-/** POST /login, POST /refresh, POST /register (public). POST /logout (protected). */
-export function createAuthRouter(deps: RegisterDeps, auth: AuthMiddlewareDeps) {
+/** POST /login, POST /refresh, POST /register, POST /forgot-password, POST /reset-password (public). POST /logout (protected). */
+export function createAuthRouter(deps: PasswordResetDeps, auth: AuthMiddlewareDeps) {
   const router = Router();
   const controller = createAuthController(deps);
   const limits = getConfig().authRateLimit;
@@ -57,18 +59,22 @@ export function createAuthRouter(deps: RegisterDeps, auth: AuthMiddlewareDeps) {
     createRateLimiter({ name, windowMs: limits.windowMs, max, key: clientIp });
   const loginPerAccount = createRateLimiter({ name: 'login-account', windowMs: limits.windowMs, max: limits.loginPerAccount, key: loginAccountKey });
   const publicPerIp = perIp('auth-public', limits.publicPerIp);
+  // Same key shape as login (client IP + tenant + email): one bucket per account attempting a reset.
+  const forgotPasswordPerAccount = createRateLimiter({ name: 'forgot-password-account', windowMs: limits.windowMs, max: limits.passwordResetPerAccount, key: loginAccountKey });
 
   router.get('/tenant/:slug', publicPerIp, controller.getTenantBySlug);
   router.post('/register', perIp('register', limits.registerPerIp), controller.postRegister);
   router.post('/login', perIp('login-ip', limits.loginPerIp), loginPerAccount, controller.postLogin);
   router.post('/refresh', publicPerIp, controller.postRefresh);
+  router.post('/forgot-password', perIp('forgot-password-ip', limits.passwordResetPerIp), forgotPasswordPerAccount, controller.postForgotPassword);
+  router.post('/reset-password', publicPerIp, controller.postResetPassword);
   router.post('/logout', authenticate(auth), requireTenant(), controller.postLogout);
 
   return router;
 }
 
 /** GET /me (protected). Mounted at /api/v1. */
-export function createMeRouter(deps: RegisterDeps, auth: AuthMiddlewareDeps) {
+export function createMeRouter(deps: PasswordResetDeps, auth: AuthMiddlewareDeps) {
   const router = Router();
   const controller = createAuthController(deps);
   router.get('/me', authenticate(auth), requireTenant(), controller.getMe);

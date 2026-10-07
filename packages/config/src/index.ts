@@ -55,6 +55,12 @@ const rawSchema = z.object({
   AUTH_LOGIN_MAX_PER_IP: z.coerce.number().int().min(1).default(100),
   AUTH_REGISTER_MAX_PER_IP: z.coerce.number().int().min(1).default(10),
   AUTH_PUBLIC_MAX_PER_IP: z.coerce.number().int().min(1).default(300),
+  // Password reset: link TTL and fixed-window limits (same in-memory limiter).
+  AUTH_PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(1440).default(60),
+  AUTH_PASSWORD_RESET_MAX_PER_IP: z.coerce.number().int().min(1).default(20),
+  AUTH_PASSWORD_RESET_MAX_PER_ACCOUNT: z.coerce.number().int().min(1).default(5),
+  // Base URL of the Web app, used to build the password-reset link sent by email.
+  WEB_APP_URL: z.string().trim().min(1).default('http://localhost:5173'),
   WORKER_CONCURRENCY: z.coerce.number().positive().default(5),
   BULLMQ_PREFIX: z.string().default('erp:bull'),
 });
@@ -76,6 +82,11 @@ const transformedSchema = rawSchema.transform((raw) => ({
     loginPerIp: raw.AUTH_LOGIN_MAX_PER_IP,
     registerPerIp: raw.AUTH_REGISTER_MAX_PER_IP,
     publicPerIp: raw.AUTH_PUBLIC_MAX_PER_IP,
+    passwordResetPerIp: raw.AUTH_PASSWORD_RESET_MAX_PER_IP,
+    passwordResetPerAccount: raw.AUTH_PASSWORD_RESET_MAX_PER_ACCOUNT,
+  },
+  passwordReset: {
+    ttlMinutes: raw.AUTH_PASSWORD_RESET_TTL_MINUTES,
   },
   redis: {
     url: raw.REDIS_URL,

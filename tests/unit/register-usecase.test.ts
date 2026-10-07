@@ -55,6 +55,7 @@ function makeStores() {
       return u;
     },
     setStatus: async () => null,
+    setPasswordHash: async () => null,
     list: async () => ({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 }),
   };
 
@@ -120,6 +121,7 @@ function makeStores() {
 
   const emailProvider = {
     sendWelcomeEmail: async () => {},
+    sendPasswordResetEmail: async () => {},
   };
 
   const deps: RegisterDeps = {

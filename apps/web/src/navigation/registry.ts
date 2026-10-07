@@ -109,8 +109,11 @@ export function getBreadcrumbLabels(path: string): string[] {
   return ['Inicio', ...(route.section === 'Inicio' ? [] : [route.section]), route.title];
 }
 
+/** Routes reachable without a session (login + the password-reset flow). */
+export const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'] as const;
+
 export function getAuthRedirectTarget(path: string, authenticated: boolean): string | null {
-  if (!authenticated && !['/login', '/register'].includes(path)) return '/login';
+  if (!authenticated && !PUBLIC_ROUTES.includes(path as (typeof PUBLIC_ROUTES)[number])) return '/login';
   if (authenticated && (path === '/' || path === '/login' || path === '/register')) return '/dashboard';
   return null;
 }

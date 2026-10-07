@@ -69,6 +69,20 @@ export const openApiSpec = {
         responses: { '200': { description: 'New token pair' }, '401': { description: 'Invalid or expired refresh token' } },
       },
     },
+    '/auth/forgot-password': {
+      post: {
+        tags: ['auth'],
+        summary: 'Request a password-reset email (Resend). Always returns 200 — never reveals whether the email exists.',
+        responses: { '200': { description: 'Request accepted' }, '400': { description: 'Validation error' }, '429': { description: 'RATE_LIMITED (per account and per client IP)' } },
+      },
+    },
+    '/auth/reset-password': {
+      post: {
+        tags: ['auth'],
+        summary: 'Consume a single-use reset link (resetId + token) and set a new password. Revokes every existing session for the user.',
+        responses: { '200': { description: 'Password updated' }, '400': { description: 'Validation error' }, '401': { description: 'Invalid, expired or already-used reset link' }, '429': { description: 'RATE_LIMITED' } },
+      },
+    },
     '/auth/logout': {
       post: {
         tags: ['auth'],

@@ -9,6 +9,15 @@ export interface WelcomeEmailInput {
   companyName: string;
 }
 
+export interface PasswordResetEmailInput {
+  to: string;
+  firstName?: string;
+  /** Full link to the Web reset-password screen, including rid + token. */
+  resetUrl: string;
+  ttlMinutes: number;
+}
+
 export interface IEmailProvider {
   sendWelcomeEmail(input: WelcomeEmailInput): Promise<void>;
+  sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<void>;
 }

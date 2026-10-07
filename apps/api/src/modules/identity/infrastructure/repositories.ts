@@ -9,8 +9,10 @@
 import { BaseRepository, mapMongoError, type TenantContext } from '@erp/database';
 import type { ClientSession } from 'mongoose';
 import type {
+  CreatePasswordResetTokenData,
   IAuditSink,
   IMembershipStore,
+  IPasswordResetStore,
   IRoleStore,
   ISessionStore,
   ISystemRoleStore,
@@ -18,15 +20,17 @@ import type {
   TxSession,
   CreateUserData,
 } from '../domain/ports';
-import type { Membership, RefreshSession, Role, UserWithCredentials, User } from '../domain/entities';
+import type { Membership, PasswordResetToken, RefreshSession, Role, UserWithCredentials, User } from '../domain/entities';
 import {
   AuditEventModel,
   MembershipModel,
+  PasswordResetTokenModel,
   RefreshSessionModel,
   RoleModel,
   UserModel,
   type AuditEventDoc,
   type MembershipDoc,
+  type PasswordResetTokenDoc,
   type RefreshSessionDoc,
   type RoleDoc,
   type UserDoc,
@@ -74,6 +78,21 @@ function toMembership(doc: MembershipDoc): Membership {
     userId: doc.userId,
     roleIds: [...doc.roleIds],
     status: doc.status,
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+    version: doc.version,
+  };
+}
+
+function toPasswordResetToken(doc: PasswordResetTokenDoc): PasswordResetToken {
+  return {
+    _id: oid(doc._id),
+    tenantId: doc.tenantId,
+    userId: doc.userId,
+    resetId: doc.resetId,
+    tokenHash: doc.tokenHash,
+    expiresAt: doc.expiresAt,
+    usedAt: doc.usedAt ?? null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
     version: doc.version,
@@ -156,6 +175,13 @@ export class MongoUserStore implements IUserStore {
     const current = await this.findById(tenantId, id);
     if (!current) return null;
     await this.base.updateById(id, { status }, { tenantId, userId: updatedBy }, current.version);
+    return this.findById(tenantId, id);
+  }
+
+  async setPasswordHash(tenantId: string, id: string, passwordHash: string, updatedBy: string): Promise<UserWithCredentials | null> {
+    const current = await this.findById(tenantId, id);
+    if (!current) return null;
+    await this.base.updateById(id, { passwordHash }, { tenantId, userId: updatedBy }, current.version);
     return this.findById(tenantId, id);
   }
 
@@ -324,6 +350,45 @@ export class MongoSessionStore implements ISessionStore {
   async revokeAllForUser(tenantId: string, userId: string): Promise<void> {
     try {
       await RefreshSessionModel.updateMany({ tenantId, userId, revokedAt: null }, { $set: { revokedAt: new Date() } }).exec();
+    } catch (err) {
+      throw mapMongoError(err);
+    }
+  }
+}
+
+export class MongoPasswordResetStore implements IPasswordResetStore {
+  async create(data: CreatePasswordResetTokenData): Promise<PasswordResetToken> {
+    try {
+      const [created] = await PasswordResetTokenModel.create([{
+        tenantId: data.tenantId,
+        userId: data.userId,
+        resetId: data.resetId,
+        tokenHash: data.tokenHash,
+        expiresAt: data.expiresAt,
+        usedAt: null,
+        createdBy: data.userId,
+        updatedBy: data.userId,
+        version: 1,
+      }]);
+      return toPasswordResetToken(created);
+    } catch (err) {
+      throw mapMongoError(err);
+    }
+  }
+
+  async findByResetId(resetId: string): Promise<PasswordResetToken | null> {
+    // resetId is an unguessable random UUID; lookup is global by design (same as RefreshSession.sessionId).
+    try {
+      const doc = await PasswordResetTokenModel.findOne({ resetId }).exec();
+      return doc ? toPasswordResetToken(doc) : null;
+    } catch (err) {
+      throw mapMongoError(err);
+    }
+  }
+
+  async markUsed(resetId: string): Promise<void> {
+    try {
+      await PasswordResetTokenModel.updateOne({ resetId, usedAt: null }, { $set: { usedAt: new Date() } }).exec();
     } catch (err) {
       throw mapMongoError(err);
     }

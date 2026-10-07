@@ -94,7 +94,28 @@ export const AUTH_ACTIONS = {
   USER_CREATED: 'users.created',
   ROLE_ASSIGNED: 'memberships.roleAssigned',
   ROLE_PERMISSIONS_SYNCED: 'roles.permissionsSynced',
+  PASSWORD_RESET_REQUESTED: 'auth.passwordReset.requested',
+  PASSWORD_RESET_SUCCESS: 'auth.passwordReset.success',
 } as const;
+
+/**
+ * Single-use password-reset link. `tokenHash` is the SHA-256 of the secret
+ * sent by email — the plaintext token is never persisted, same pattern as
+ * RefreshSession.tokenHash. `resetId` is the public identifier embedded in
+ * the link so the secret itself never appears in a database lookup key.
+ */
+export interface PasswordResetToken {
+  _id: string;
+  tenantId: string;
+  userId: string;
+  resetId: string;
+  tokenHash: string;
+  expiresAt: Date;
+  usedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  version: number;
+}
 
 /** Keys that must never be persisted into audit before/after payloads. */
 const SECRET_KEYS = new Set([

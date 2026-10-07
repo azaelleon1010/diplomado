@@ -65,6 +65,25 @@ export const registerSchema = z
 
 export type RegisterDto = z.infer<typeof registerSchema>;
 
+export const forgotPasswordSchema = z
+  .object({
+    email: z.string().trim().min(1).max(254).email(),
+    tenantId: z.string().trim().min(1).max(120).optional(),
+  })
+  .strict();
+
+export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+  .object({
+    resetId: z.string().trim().min(1).max(120),
+    token: z.string().trim().min(32).max(256),
+    newPassword: z.string().min(8).max(128),
+  })
+  .strict();
+
+export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;
+
 export const usersQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),

@@ -86,6 +86,10 @@ export function LoginScreen({ onNavigate }: LoginScreenProps) {
           style={styles.button}
         />
 
+        <TouchableOpacity onPress={() => onNavigate('/forgot-password')}>
+          <Text style={[styles.link, { color: t.colors.text.ai }]}>¿Olvidaste tu contraseña?</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => onNavigate('/register')}>
           <Text style={[styles.link, { color: t.colors.text.ai }]}>¿No tienes cuenta? Crear una cuenta</Text>
         </TouchableOpacity>

@@ -126,6 +126,38 @@ refreshSessionSchema.index({ tenantId: 1, userId: 1 }, { name: 'idx_tenant_user_
 refreshSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'ttl_expires_at' });
 addTenantIndex(refreshSessionSchema);
 
+export interface PasswordResetTokenDoc extends mongoose.Document {
+  _id: mongoose.Types.ObjectId;
+  tenantId: string;
+  userId: string;
+  resetId: string;
+  tokenHash: string;
+  expiresAt: Date;
+  usedAt?: Date | null;
+  createdBy: string;
+  updatedBy: string;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const passwordResetTokenSchema = new Schema<PasswordResetTokenDoc>(
+  {
+    ...(baseFields as Record<string, unknown>),
+    userId: { type: String, required: true, trim: true },
+    resetId: { type: String, required: true, trim: true },
+    tokenHash: { type: String, required: true },
+    expiresAt: { type: Date, required: true },
+    usedAt: { type: Date, default: null },
+  } as Record<string, unknown>,
+  { ...baseOptions, collection: 'passwordResetTokens' },
+);
+passwordResetTokenSchema.index({ resetId: 1 }, { unique: true, name: 'uniq_reset_id' });
+passwordResetTokenSchema.index({ tenantId: 1, userId: 1 }, { name: 'idx_tenant_user_reset' });
+// Hygiene: MongoDB removes expired, unused tokens automatically.
+passwordResetTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'ttl_expires_at' });
+addTenantIndex(passwordResetTokenSchema);
+
 export interface AuditEventDoc extends mongoose.Document {
   _id: mongoose.Types.ObjectId;
   tenantId: string;
@@ -170,7 +202,13 @@ export const UserModel = getOrCreate<UserDoc>('IdentityUser', userSchema);
 export const RoleModel = getOrCreate<RoleDoc>('IdentityRole', roleSchema);
 export const MembershipModel = getOrCreate<MembershipDoc>('IdentityMembership', membershipSchema);
 export const RefreshSessionModel = getOrCreate<RefreshSessionDoc>('IdentityRefreshSession', refreshSessionSchema);
+export const PasswordResetTokenModel = getOrCreate<PasswordResetTokenDoc>('IdentityPasswordResetToken', passwordResetTokenSchema);
 export const AuditEventModel = getOrCreate<AuditEventDoc>('IdentityAuditEvent', auditEventSchema);
 
-/** Models whose indexes must exist before the API serves traffic. */
-export const identityModels = [UserModel, RoleModel, MembershipModel, RefreshSessionModel, AuditEventModel] as unknown as Array<import('mongoose').Model<unknown>>;
+/**
+ * Models whose indexes must exist before the API serves traffic.
+ * Order matters: existing tests index this array positionally
+ * (tests/integration/auth.test.ts), so new models are appended, never
+ * inserted before AuditEventModel at index 4.
+ */
+export const identityModels = [UserModel, RoleModel, MembershipModel, RefreshSessionModel, AuditEventModel, PasswordResetTokenModel] as unknown as Array<import('mongoose').Model<unknown>>;

@@ -6,7 +6,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { useCommandPalette } from './hooks/useCommandPalette';
 import { useNavigation, renderRoute } from './navigation/routes';
 import { AuthProvider, useAuth } from './auth/AuthContext';
-import { getAuthRedirectTarget } from './navigation/registry';
+import { getAuthRedirectTarget, PUBLIC_ROUTES } from './navigation/registry';
 import { LoadingState } from './components/States';
 import { semanticColors } from './theme/tokens';
 import "./styles/global.css";
@@ -42,7 +42,7 @@ function AuthenticatedShell() {
   }
 
   if (!user) {
-    const target = ['/login', '/register'].includes(path) ? path : '/login';
+    const target = PUBLIC_ROUTES.includes(path as (typeof PUBLIC_ROUTES)[number]) ? path : '/login';
     if (target !== path) return <View style={styles.splash}><LoadingState label="Volviendo al inicio de sesión…" /></View>;
     return (
       <View style={styles.root}>

@@ -39,7 +39,7 @@ export async function startHarness(database: string): Promise<Harness> {
   await disconnectMongo().catch(() => {});
   await connectMongo();
   await ensureIndexes(applicationModels);
-  const deps = buildIdentityDeps({ async sendWelcomeEmail() {} });
+  const deps = buildIdentityDeps({ async sendWelcomeEmail() {}, async sendPasswordResetEmail() {} });
   return {
     app: createApp(deps),
     deps,

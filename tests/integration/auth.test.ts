@@ -48,6 +48,7 @@ let userIdB = '';
 describe('Auth integration: login → refresh → /me → logout', () => {
   const testEmailProvider: IEmailProvider = {
     async sendWelcomeEmail() {},
+    async sendPasswordResetEmail() {},
   };
 
   beforeAll(async () => {

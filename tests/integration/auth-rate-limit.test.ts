@@ -36,7 +36,7 @@ describe('auth rate limiting', () => {
     await disconnectMongo().catch(() => {});
     await connectMongo();
     await ensureIndexes(applicationModels);
-    app = createApp(buildIdentityDeps({ async sendWelcomeEmail() {} }));
+    app = createApp(buildIdentityDeps({ async sendWelcomeEmail() {}, async sendPasswordResetEmail() {} }));
   }, 90000);
 
   afterAll(async () => {

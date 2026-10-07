@@ -160,6 +160,12 @@ export const authApi = {
     apiRequest<{ loggedOut: boolean }>('/api/v1/auth/logout', { method: 'POST', token: accessToken }),
   me: (accessToken: string) =>
     apiRequest<MeResponse>('/api/v1/me', { token: accessToken }),
+
+  /** Always resolves (never throws for "email not found") — the API never reveals whether the account exists. */
+  forgotPassword: (email: string, tenantId?: string) =>
+    apiRequest<{ requested: true }>('/api/v1/auth/forgot-password', { method: 'POST', body: { email, ...(tenantId ? { tenantId } : {}) } }),
+  resetPassword: (resetId: string, token: string, newPassword: string) =>
+    apiRequest<{ success: true }>('/api/v1/auth/reset-password', { method: 'POST', body: { resetId, token, newPassword } }),
 };
 
 const SESSION_KEY = 'tramatech.session.v1';

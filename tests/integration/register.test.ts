@@ -27,6 +27,7 @@ const company = (n: string) => ({
 describe('Register vertical slice: company -> tenant -> session -> dashboard data', () => {
   const testEmailProvider: IEmailProvider = {
     async sendWelcomeEmail() {},
+    async sendPasswordResetEmail() {},
   };
 
   beforeAll(async () => {

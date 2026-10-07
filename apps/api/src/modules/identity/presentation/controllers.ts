@@ -3,7 +3,7 @@
  * Business rules live in Application; errors flow to the global errorHandler.
  */
 import type { NextFunction, Request, Response } from 'express';
-import type { ActorContext, IdentityDeps, RegisterDeps } from '../application/usecases';
+import type { ActorContext, IdentityDeps } from '../application/usecases';
 import {
   assignRole,
   createUser,
@@ -15,7 +15,18 @@ import {
   refresh,
   register,
 } from '../application/usecases';
-import { assignRoleSchema, createUserSchema, idParamSchema, loginSchema, refreshSchema, registerSchema, usersQuerySchema } from './schemas';
+import { requestPasswordReset, resetPassword, type PasswordResetDeps } from '../application/passwordReset';
+import {
+  assignRoleSchema,
+  createUserSchema,
+  forgotPasswordSchema,
+  idParamSchema,
+  loginSchema,
+  refreshSchema,
+  registerSchema,
+  resetPasswordSchema,
+  usersQuerySchema,
+} from './schemas';
 
 function actorOf(req: Request): ActorContext {
   return {
@@ -31,7 +42,7 @@ function ok(res: Response, req: Request, data: unknown, status = 200, meta?: Rec
   res.status(status).json({ success: true, data, ...(meta ? { meta } : {}), traceId: req.traceId });
 }
 
-export function createAuthController(deps: RegisterDeps) {
+export function createAuthController(deps: PasswordResetDeps) {
   return {
     async getTenantBySlug(req: Request, res: Response, next: NextFunction): Promise<void> {
       try {
@@ -90,6 +101,26 @@ export function createAuthController(deps: RegisterDeps) {
       try {
         const dto = refreshSchema.parse(req.body);
         const result = await refresh({ ...dto, correlationId: req.traceId }, deps);
+        ok(res, req, result);
+      } catch (err) {
+        next(err);
+      }
+    },
+
+    async postForgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const dto = forgotPasswordSchema.parse(req.body);
+        const result = await requestPasswordReset({ ...dto, correlationId: req.traceId }, deps);
+        ok(res, req, result);
+      } catch (err) {
+        next(err);
+      }
+    },
+
+    async postResetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+      try {
+        const dto = resetPasswordSchema.parse(req.body);
+        const result = await resetPassword({ ...dto, correlationId: req.traceId }, deps);
         ok(res, req, result);
       } catch (err) {
         next(err);

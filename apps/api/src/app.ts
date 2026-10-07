@@ -14,7 +14,7 @@ import {
   createMeRouter,
   createUsersRouter,
 } from './modules/identity/presentation/routes';
-import type { RegisterDeps } from './modules/identity/application/usecases';
+import type { PasswordResetDeps } from './modules/identity/application/passwordReset';
 import { buildInventoryDeps, createInventoryRouter } from './modules/inventory/presentation/routes';
 import { buildMaintenanceDeps, createMaintenanceRouter } from './modules/maintenance/presentation/routes';
 import { buildProductionDeps, createProductionRouter } from './modules/production/presentation/routes';
@@ -23,7 +23,7 @@ import { buildHrDeps, createHrRouter } from './modules/hr/presentation/routes';
 import { buildFinanceDeps, createFinanceRouter } from './modules/finance/presentation/routes';
 import { openApiSpec } from './openapi';
 
-export function createApp(identityDeps?: RegisterDeps) {
+export function createApp(identityDeps?: PasswordResetDeps) {
   const app = express();
   const config = getConfig();
   // req.ip must be the client, not Render's proxy, for per-IP auth limits.
