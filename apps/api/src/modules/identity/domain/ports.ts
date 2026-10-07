@@ -79,6 +79,15 @@ export interface IRoleStore {
   setPermissions(tenantId: string, roleId: string, permissions: string[], updatedBy: string): Promise<Role | null>;
 }
 
+/**
+ * Cross-tenant role access for platform maintenance scripts only (never
+ * wired to HTTP routes). Kept separate from IRoleStore on purpose.
+ */
+export interface ISystemRoleStore {
+  findActiveByNameAcrossTenants(names: string[]): Promise<Role[]>;
+  setPermissions(tenantId: string, roleId: string, permissions: string[], updatedBy: string): Promise<Role | null>;
+}
+
 export interface IMembershipStore {
   findByUserAndTenant(userId: string, tenantId: string): Promise<Membership | null>;
   findActiveByUser(userId: string): Promise<Membership[]>;

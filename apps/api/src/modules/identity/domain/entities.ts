@@ -93,6 +93,7 @@ export const AUTH_ACTIONS = {
   TENANT_CREATED: 'tenants.created',
   USER_CREATED: 'users.created',
   ROLE_ASSIGNED: 'memberships.roleAssigned',
+  ROLE_PERMISSIONS_SYNCED: 'roles.permissionsSynced',
 } as const;
 
 /** Keys that must never be persisted into audit before/after payloads. */

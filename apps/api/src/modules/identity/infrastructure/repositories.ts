@@ -13,6 +13,7 @@ import type {
   IMembershipStore,
   IRoleStore,
   ISessionStore,
+  ISystemRoleStore,
   IUserStore,
   TxSession,
   CreateUserData,
@@ -174,7 +175,7 @@ export class MongoUserStore implements IUserStore {
   }
 }
 
-export class MongoRoleStore implements IRoleStore {
+export class MongoRoleStore implements IRoleStore, ISystemRoleStore {
   private readonly base = new RoleBaseRepo(RoleModel);
 
   async findById(tenantId: string, id: string): Promise<Role | null> {
@@ -213,6 +214,17 @@ export class MongoRoleStore implements IRoleStore {
   async list(tenantId: string): Promise<Role[]> {
     try {
       const docs = await RoleModel.find({ tenantId }).sort({ name: 1 }).exec();
+      return docs.map(toRole);
+    } catch (err) {
+      throw mapMongoError(err);
+    }
+  }
+
+  /** System maintenance only (role-permission sync script). */
+  async findActiveByNameAcrossTenants(names: string[]): Promise<Role[]> {
+    if (names.length === 0) return [];
+    try {
+      const docs = await RoleModel.find({ name: { $in: names }, status: 'ACTIVE' }).sort({ tenantId: 1, name: 1 }).exec();
       return docs.map(toRole);
     } catch (err) {
       throw mapMongoError(err);

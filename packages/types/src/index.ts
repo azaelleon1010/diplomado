@@ -61,3 +61,4 @@ export interface HealthResponse {
 }
 
 export * from './dashboard';
+export * from './permissions';

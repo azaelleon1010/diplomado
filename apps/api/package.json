@@ -8,6 +8,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/apps/api/src/index.js",
     "seed:identity": "tsx src/scripts/seedIdentity.ts",
+    "roles:sync-permissions": "tsx src/scripts/syncRolePermissions.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "test": "vitest run"
