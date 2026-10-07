@@ -5,6 +5,13 @@ import type { IEmailProvider, PasswordResetEmailInput, WelcomeEmailInput } from 
 export class ResendEmailProvider implements IEmailProvider {
   private readonly client: Resend;
   private readonly from: string;
+  /**
+   * Resend's shared test domain (onboarding@resend.dev) only delivers to the
+   * account's own verified address. When set, every email is redirected
+   * here instead of the real recipient, with a banner noting who it was
+   * really for — lets the product work end to end without a custom domain.
+   */
+  private readonly sandboxTo?: string;
 
   constructor() {
     const config = getConfig();
@@ -19,17 +26,36 @@ export class ResendEmailProvider implements IEmailProvider {
 
     this.client = new Resend(config.RESEND_API_KEY);
     this.from = config.RESEND_FROM_EMAIL;
+    this.sandboxTo = config.RESEND_SANDBOX_TO;
+  }
+
+  /** Resolves the real send-to address and an optional banner for sandbox redirects. */
+  private recipientFor(intendedTo: string): { to: string; banner: string } {
+    if (!this.sandboxTo || this.sandboxTo.toLowerCase() === intendedTo.toLowerCase()) {
+      return { to: intendedTo, banner: '' };
+    }
+    return {
+      to: this.sandboxTo,
+      banner: `
+        <p style="background:#FEF3C7;color:#92400E;padding:10px 14px;border-radius:8px;font-size:13px;">
+          Modo de prueba de Resend: este correo iba dirigido a <strong>${intendedTo}</strong>
+          y se redirigió aquí porque el remitente todavía no tiene un dominio propio verificado.
+        </p>
+      `,
+    };
   }
 
   async sendWelcomeEmail(input: WelcomeEmailInput): Promise<void> {
     const displayName = input.firstName?.trim() || input.to;
+    const { to, banner } = this.recipientFor(input.to);
 
     const { error } = await this.client.emails.send({
       from: this.from,
-      to: input.to,
+      to,
       subject: `Bienvenido a TramaTech ERP, ${displayName}`,
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+          ${banner}
           <h1>Bienvenido a TramaTech ERP</h1>
           <p>Hola ${displayName},</p>
           <p>
@@ -53,13 +79,15 @@ export class ResendEmailProvider implements IEmailProvider {
 
   async sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<void> {
     const displayName = input.firstName?.trim() || input.to;
+    const { to, banner } = this.recipientFor(input.to);
 
     const { error } = await this.client.emails.send({
       from: this.from,
-      to: input.to,
+      to,
       subject: 'Restablece tu contraseña — TramaTech ERP',
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+          ${banner}
           <h1>Restablece tu contraseña</h1>
           <p>Hola ${displayName},</p>
           <p>

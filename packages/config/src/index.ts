@@ -41,6 +41,13 @@ const rawSchema = z.object({
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(10),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().optional(),
+  // Resend's shared sending domain (e.g. onboarding@resend.dev) only
+  // delivers to the Resend account's own verified address — it cannot reach
+  // arbitrary recipients without a verified custom domain. When set, every
+  // outgoing email (welcome, password reset) is redirected to this address
+  // instead of the real recipient, so the product still works end to end
+  // without owning a domain. Unset this once a verified domain is in place.
+  RESEND_SANDBOX_TO: z.string().email().optional(),
   ENCRYPTION_KEY: z.string().min(16).default('change-me-32-chars-encryption-key!!'),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:3001'),
