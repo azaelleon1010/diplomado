@@ -343,3 +343,40 @@ No hay: pruebas E2E de UI (web o móvil), pruebas de carga, pruebas de flujos co
 Cada paso: cambio pequeño → typecheck → tests → build web → bundle móvil → commit propio.
 
 **Fase 2 — Compras + inventario:** recepción como documento idempotente que genera entradas al libro de inventario; permisos `purchasing.approve/receive` con segregación; pantallas Web (proveedores, OC, recepción) y flujo de recepción móvil; test de flujo completo proveedor → OC → aprobación → recepción → inventario. CxP se deja preparada para Finanzas (Fase 6), no se simula.
+
+---
+
+## 14. Fase 1 — Fundaciones comunes (completada)
+
+| Paso | Resultado | Commit |
+|---|---|---|
+| Fixtures de integración | Los 5 archivos que fallaban (41 tests omitidos) ahora corren y pasan; aserciones sin cambios | `test: create tenant documents…` |
+| Lint en verde | 0 errores (44 advertencias `no-explicit-any`/`no-console`); CI puede ejecutarse | `chore: clear lint errors…` |
+| Permisos compartidos y granulares | Catálogo en `packages/types/src/permissions.ts` (API lo reexporta). Nuevos: `production.approve/execute/cancel`, `purchasing.approve/receive/cancel`, `maintenance.execute/close`, `hr.approve`, `finance.post/approve`. Script de sincronización aditiva `roles:sync-permissions` (simulación por defecto) | `feat(identity): share permission catalog…` |
+| Rate limiting de auth | Login por cuenta e IP, registro por IP, consulta de empresa/refresh por IP; `trust proxy` = 1 en producción | `feat(identity): rate-limit public auth endpoints` |
+| Reintento de transacciones | `mapMongoError` ya no oculta `TransientTransactionError` (antes: 500 en concurrencia) | `fix(database): …` |
+| Libro de inventario | Movimientos inmutables, saldos, transferencias, idempotencia, transacción única — ver `docs/modules/inventory.md` | `feat(inventory): add stock ledger…` |
+| UI Web/Mobile de existencias | Web `/operations/warehouses`; Mobile Existencias + captura rápida | `feat(inventory): add stock screens…` |
+| Web | `createRoot` en lugar de `hydrateRoot` (errores de hidratación en cada carga) | `fix(web): …` |
+| OpenAPI | Endpoints nuevos y `/auth/tenant/{slug}` documentados; test de contrato que falla si un router expone una ruta no documentada | `docs(api): …` |
+
+**Estado de calidad al cierre:** 44 archivos / 264 tests pasan, 0 omitidos; typecheck sin errores en todos los workspaces; lint sin errores; build completo del monorepo OK; bundle Android (Metro) OK.
+
+**Verificación manual:** Web local contra la API real con MongoDB en memoria (sin tocar Atlas): login por empresa, existencias, salida rechazada por stock insuficiente con mensaje en español y sin escritura, salida válida que actualiza saldo e historial.
+
+### Riesgos actualizados
+
+| # | Estado |
+|---|---|
+| R1 (sin libro de inventario) | **Mitigado**: libro disponible; falta conectarlo a Compras/Producción/Mantenimiento (Fases 2–4) |
+| R3 (sin rate limiting) | **Mitigado** (en memoria, por instancia) |
+| R5 (operaciones no idempotentes) | **Mitigado para inventario**; patrón reutilizable (`apps/api/src/shared/idempotency.ts`) |
+| R6 (owners sin permisos nuevos) | **Herramienta lista**: `npm run roles:sync-permissions --workspace @erp/api` (simulación) y `-- --apply`. **En producción requiere autorización explícita.** Ninguna ruta exige todavía los permisos nuevos |
+| R10 (integración sin verificación) | **Resuelto** |
+
+### Acciones de despliegue pendientes (requieren tu decisión)
+
+1. Push de la rama → Render redespliega la API (crea colecciones e índices nuevos al arrancar: `inventoryMovements`, `inventoryBalances`, `idempotencyKeys`; aditivo, no modifica datos existentes).
+2. Ejecutar en producción, cuando lo autorices, `roles:sync-permissions` primero en simulación y después con `--apply`.
+3. Recompilar el APK para incluir las pantallas de existencias.
+4. Nueva deuda detectada: `.js/.d.ts` generados versionados dentro de `packages/{database,errors,logger}/src` (el runtime usa `dist/`); conviene retirarlos de Git en una limpieza dedicada.
