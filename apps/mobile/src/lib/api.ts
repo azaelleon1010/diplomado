@@ -7,6 +7,7 @@ import {
   type InventoryProduct,
   type InventoryRequestClient,
 } from '../../../../packages/types/src/inventory';
+import { createPurchasingApi } from '../../../../packages/types/src/purchasing';
 
 /**
  * Same backend as the Web client. For a local API from the Android emulator
@@ -380,6 +381,9 @@ export const inventoryApi = createInventoryApi(inventoryClient);
 /** Warehouses + stock ledger (packages/types/src/inventory.ts), same as the other client. */
 export const stockApi = createStockApi(inventoryClient);
 
+/** Shared purchasing contract (packages/types/src/purchasing.ts), same as Web. */
+export const purchasingApi = createPurchasingApi(inventoryClient);
+
 export interface Asset {
   _id: string;
   tenantId: string;
@@ -608,128 +612,13 @@ export const productionApi = {
     }),
 };
 
-export interface Supplier {
-  _id: string;
-  tenantId: string;
-  code: string;
-  name: string;
-  contactName?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  taxId?: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  version: number;
-}
-
-export interface CreateSupplierInput {
-  code: string;
-  name: string;
-  contactName?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  taxId?: string;
-}
-
-export interface PurchaseOrderLine {
-  productId: string;
-  quantity: number;
-  unitCost: number;
-  quantityReceived: number;
-}
-
-export interface PurchaseOrder {
-  _id: string;
-  tenantId: string;
-  folio: string;
-  supplierId: string;
-  status: string;
-  expectedDate?: string;
-  notes?: string;
-  receivedAt?: string;
-  lines: PurchaseOrderLine[];
-  subtotal: number;
-  createdAt: string;
-  updatedAt: string;
-  version: number;
-}
-
-export interface CreatePurchaseOrderInput {
-  folio: string;
-  supplierId: string;
-  expectedDate?: string;
-  notes?: string;
-  lines: Array<{ productId: string; quantity: number; unitCost: number }>;
-}
-
-export interface ListPurchaseOrdersParams {
-  supplierId?: string;
-  status?: string;
-  page?: number;
-  limit?: number;
-}
-
-export const purchasingApi = {
-  listSuppliers: (token: string) =>
-    apiRequest<Supplier[]>('/api/v1/purchasing/suppliers?limit=100', {
-      token,
-    }),
-
-  createSupplier: (token: string, input: CreateSupplierInput) =>
-    apiRequest<Supplier>('/api/v1/purchasing/suppliers', {
-      method: 'POST',
-      token,
-      body: input,
-    }),
-
-  listOrders: (token: string, params: ListPurchaseOrdersParams = {}) =>
-    apiRequest<PurchaseOrder[]>(
-      `/api/v1/purchasing/orders${toQueryString({
-        supplierId: params.supplierId,
-        status: params.status,
-        page: params.page,
-        limit: params.limit ?? 100,
-      })}`,
-      { token },
-    ),
-
-  getOrder: (token: string, id: string) =>
-    apiRequest<PurchaseOrder>(`/api/v1/purchasing/orders/${id}`, {
-      token,
-    }),
-
-  createOrder: (token: string, input: CreatePurchaseOrderInput) =>
-    apiRequest<PurchaseOrder>('/api/v1/purchasing/orders', {
-      method: 'POST',
-      token,
-      body: input,
-    }),
-
-  transitionOrder: (
-    token: string,
-    id: string,
-    to: 'SENT' | 'APPROVED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED',
-    expectedVersion: number,
-    lines?: Array<{ productId: string; quantityReceived: number }>,
-  ) =>
-    apiRequest<PurchaseOrder>(
-      `/api/v1/purchasing/orders/${id}/transition`,
-      {
-        method: 'POST',
-        token,
-        body: { to, expectedVersion, ...(lines !== undefined ? { lines } : {}) },
-      },
-    ),
-
-  cancelOrder: (token: string, id: string) =>
-    apiRequest<PurchaseOrder>(`/api/v1/purchasing/orders/${id}`, {
-      method: 'DELETE',
-      token,
-    }),
-};
+export type {
+  GoodsReceipt,
+  PurchaseOrder,
+  PurchaseOrderLine,
+  PurchaseRequest,
+  Supplier,
+} from '../../../../packages/types/src/purchasing';
 
 export interface Department {
   _id: string;

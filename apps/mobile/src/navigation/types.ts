@@ -33,6 +33,7 @@ export type OperationsStackParamList = {
   SupplierForm: undefined;
   PurchaseOrderForm: undefined;
   PurchaseOrderDetail: { orderId: string };
+  PurchaseReceive: { orderId: string };
   HR: undefined;
   EmployeeForm: { employeeId: string } | undefined;
   TimeOffForm: undefined;

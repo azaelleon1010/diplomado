@@ -67,7 +67,7 @@ export function PurchaseOrderFormScreen(): React.JSX.Element {
         purchasingApi.listSuppliers(session.accessToken),
         inventoryApi.listProducts(session.accessToken, { limit: 100 }).catch(() => [] as Product[]),
       ]);
-      setSuppliers((Array.isArray(fetchedSuppliers) ? fetchedSuppliers : []).filter((s) => s.status === 'ACTIVE'));
+      setSuppliers(fetchedSuppliers.items.filter((s) => s.status === 'ACTIVE'));
       setProducts((Array.isArray(fetchedProducts) ? fetchedProducts : []).filter((p) => p.status === 'ACTIVE'));
     } catch (error) {
       setSuppliers([]);

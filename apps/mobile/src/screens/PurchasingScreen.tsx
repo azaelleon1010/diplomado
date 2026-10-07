@@ -65,10 +65,10 @@ export function PurchasingScreen(): React.JSX.Element {
           status: statusFilter === 'all' ? undefined : statusFilter,
           limit: 100,
         }),
-        purchasingApi.listSuppliers(session.accessToken).catch(() => [] as Supplier[]),
+        purchasingApi.listSuppliers(session.accessToken).then((page) => page.items).catch(() => [] as Supplier[]),
       ]);
-      setOrders(Array.isArray(fetchedOrders) ? fetchedOrders : []);
-      const list = Array.isArray(fetchedSuppliers) ? fetchedSuppliers : [];
+      setOrders(fetchedOrders.items);
+      const list = fetchedSuppliers;
       setSuppliers(list);
       const names: Record<string, string> = {};
       for (const supplier of list) names[supplier._id] = supplier.name;

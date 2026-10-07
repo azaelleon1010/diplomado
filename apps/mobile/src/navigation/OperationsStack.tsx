@@ -16,6 +16,7 @@ import { PurchasingScreen } from '../screens/PurchasingScreen';
 import { SupplierFormScreen } from '../screens/SupplierFormScreen';
 import { PurchaseOrderFormScreen } from '../screens/PurchaseOrderFormScreen';
 import { PurchaseOrderDetailScreen } from '../screens/PurchaseOrderDetailScreen';
+import { PurchaseReceiveScreen } from '../screens/PurchaseReceiveScreen';
 import { HRScreen } from '../screens/HRScreen';
 import { EmployeeFormScreen } from '../screens/EmployeeFormScreen';
 import { TimeOffFormScreen } from '../screens/TimeOffFormScreen';
@@ -40,6 +41,7 @@ const PurchasingScreenAccess = withModulePermission(PurchasingScreen, MODULE_ACC
 const SupplierFormScreenAccess = withModulePermission(SupplierFormScreen, MODULE_ACCESS.purchasingWrite);
 const PurchaseOrderFormScreenAccess = withModulePermission(PurchaseOrderFormScreen, MODULE_ACCESS.purchasingWrite);
 const PurchaseOrderDetailScreenAccess = withModulePermission(PurchaseOrderDetailScreen, MODULE_ACCESS.purchasingRead);
+const PurchaseReceiveScreenAccess = withModulePermission(PurchaseReceiveScreen, MODULE_ACCESS.purchasingReceive);
 const HRScreenAccess = withModulePermission(HRScreen, MODULE_ACCESS.hrRead);
 const EmployeeFormScreenAccess = withModulePermission(EmployeeFormScreen, MODULE_ACCESS.hrWrite);
 const TimeOffFormScreenAccess = withModulePermission(TimeOffFormScreen, MODULE_ACCESS.hrWrite);
@@ -65,6 +67,7 @@ export function OperationsStack(): React.JSX.Element {
       <Stack.Screen name="SupplierForm" component={SupplierFormScreenAccess} />
       <Stack.Screen name="PurchaseOrderForm" component={PurchaseOrderFormScreenAccess} />
       <Stack.Screen name="PurchaseOrderDetail" component={PurchaseOrderDetailScreenAccess} />
+      <Stack.Screen name="PurchaseReceive" component={PurchaseReceiveScreenAccess} />
       <Stack.Screen name="HR" component={HRScreenAccess} />
       <Stack.Screen name="EmployeeForm" component={EmployeeFormScreenAccess} />
       <Stack.Screen name="TimeOffForm" component={TimeOffFormScreenAccess} />

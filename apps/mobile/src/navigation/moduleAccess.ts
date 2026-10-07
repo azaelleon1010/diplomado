@@ -26,6 +26,7 @@ export const MODULE_ACCESS = {
   inventoryMove: ['inventory.stock.in', 'inventory.stock.out', 'inventory.stock.adjust', 'inventory.transfer'],
   purchasingRead: ['purchasing.read'],
   purchasingWrite: ['purchasing.create', 'purchasing.update'],
+  purchasingReceive: ['purchasing.receive'],
   productionRead: ['production.read'],
   productionWrite: ['production.create', 'production.update'],
   maintenanceRead: ['maintenance.read'],
