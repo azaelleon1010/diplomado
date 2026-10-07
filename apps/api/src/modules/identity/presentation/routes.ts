@@ -3,6 +3,8 @@
  * Routers are built from explicit dependencies (no service locator).
  */
 import { Router } from 'express';
+import { getConfig } from '@erp/config';
+import { clientIp, createRateLimiter, loginAccountKey } from '../../../middleware/rateLimit';
 import type { RegisterDeps } from '../application/usecases';
 import type { ITenantStore } from '../../tenant/domain/ports';
 import { PERMISSIONS } from '../domain/permissions';
@@ -49,11 +51,16 @@ export function buildAuthMiddleware(deps: RegisterDeps): AuthMiddlewareDeps {
 export function createAuthRouter(deps: RegisterDeps, auth: AuthMiddlewareDeps) {
   const router = Router();
   const controller = createAuthController(deps);
+  const limits = getConfig().authRateLimit;
+  const perIp = (name: string, max: number) =>
+    createRateLimiter({ name, windowMs: limits.windowMs, max, key: clientIp });
+  const loginPerAccount = createRateLimiter({ name: 'login-account', windowMs: limits.windowMs, max: limits.loginPerAccount, key: loginAccountKey });
+  const publicPerIp = perIp('auth-public', limits.publicPerIp);
 
-  router.get('/tenant/:slug', controller.getTenantBySlug);
-  router.post('/register', controller.postRegister);
-  router.post('/login', controller.postLogin);
-  router.post('/refresh', controller.postRefresh);
+  router.get('/tenant/:slug', publicPerIp, controller.getTenantBySlug);
+  router.post('/register', perIp('register', limits.registerPerIp), controller.postRegister);
+  router.post('/login', perIp('login-ip', limits.loginPerIp), loginPerAccount, controller.postLogin);
+  router.post('/refresh', publicPerIp, controller.postRefresh);
   router.post('/logout', authenticate(auth), requireTenant(), controller.postLogout);
 
   return router;

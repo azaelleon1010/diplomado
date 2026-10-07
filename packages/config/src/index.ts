@@ -46,6 +46,15 @@ const rawSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:3001'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().positive().default(60000),
   RATE_LIMIT_MAX: z.coerce.number().positive().default(100),
+  // Proxy hops to trust for req.ip ("false", "true" or a hop count).
+  // Unset: 1 in production (Render's TLS proxy), none elsewhere.
+  TRUST_PROXY: z.string().trim().regex(/^(true|false|\d+)$/).optional(),
+  // Fixed-window limits for public auth endpoints (in-memory, per instance).
+  AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(15 * 60 * 1000),
+  AUTH_LOGIN_MAX_PER_ACCOUNT: z.coerce.number().int().min(1).default(10),
+  AUTH_LOGIN_MAX_PER_IP: z.coerce.number().int().min(1).default(100),
+  AUTH_REGISTER_MAX_PER_IP: z.coerce.number().int().min(1).default(10),
+  AUTH_PUBLIC_MAX_PER_IP: z.coerce.number().int().min(1).default(300),
   WORKER_CONCURRENCY: z.coerce.number().positive().default(5),
   BULLMQ_PREFIX: z.string().default('erp:bull'),
 });
@@ -54,7 +63,20 @@ const transformedSchema = rawSchema.transform((raw) => ({
   ...raw,
   MONGODB_DATABASE: raw.MONGODB_DATABASE?.trim() ? raw.MONGODB_DATABASE.trim() : raw.MONGODB_DB_NAME,
   MONGODB_DB_NAME: raw.MONGODB_DATABASE?.trim() ? raw.MONGODB_DATABASE.trim() : raw.MONGODB_DB_NAME,
-  server: { port: raw.PORT },
+  server: {
+    port: raw.PORT,
+    trustProxy:
+      raw.TRUST_PROXY === undefined
+        ? raw.NODE_ENV === 'production' ? 1 : false
+        : raw.TRUST_PROXY === 'true' ? true : raw.TRUST_PROXY === 'false' ? false : Number(raw.TRUST_PROXY),
+  },
+  authRateLimit: {
+    windowMs: raw.AUTH_RATE_LIMIT_WINDOW_MS,
+    loginPerAccount: raw.AUTH_LOGIN_MAX_PER_ACCOUNT,
+    loginPerIp: raw.AUTH_LOGIN_MAX_PER_IP,
+    registerPerIp: raw.AUTH_REGISTER_MAX_PER_IP,
+    publicPerIp: raw.AUTH_PUBLIC_MAX_PER_IP,
+  },
   redis: {
     url: raw.REDIS_URL,
     prefix: raw.REDIS_PREFIX,

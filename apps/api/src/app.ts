@@ -26,6 +26,8 @@ import { openApiSpec } from './openapi';
 export function createApp(identityDeps?: RegisterDeps) {
   const app = express();
   const config = getConfig();
+  // req.ip must be the client, not Render's proxy, for per-IP auth limits.
+  app.set('trust proxy', config.server.trustProxy);
 
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: config.CORS_ORIGIN.split(',').map((s) => s.trim()), credentials: true }));
