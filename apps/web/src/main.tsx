@@ -1,5 +1,6 @@
 import React from 'react';
-import { hydrateRoot } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import App from './App';
 
-hydrateRoot(document.getElementById('root')!, <App />);
+// Client-only SPA: index.html ships an empty root (no SSR markup to hydrate).
+createRoot(document.getElementById('root')!).render(<App />);
