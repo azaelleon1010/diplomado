@@ -9,6 +9,8 @@ import { ROUTE_DEFINITIONS, getRouteDefinition, canAccessRoute } from './registr
 import { InventoryScreen } from '../screens/Inventory';
 import { StockScreen } from '../screens/Stock';
 import { PurchasingScreen } from '../screens/Purchasing';
+import { ProductionScreen } from '../screens/Production';
+import { MaintenanceScreen } from '../screens/Maintenance';
 
 export const PUBLIC_ROUTES = ['/login', '/register'];
 
@@ -62,6 +64,8 @@ export function renderRoute(
   if (path === '/operations/warehouses') return <StockScreen />;
   if (path === '/procurement/purchases') return <PurchasingScreen initialTab="orders" />;
   if (path === '/procurement/suppliers') return <PurchasingScreen initialTab="suppliers" />;
+  if (path === '/operations/production') return <ProductionScreen />;
+  if (path === '/operations/maintenance') return <MaintenanceScreen initialTab="orders" />;
 
   const exactRoute = ROUTE_DEFINITIONS.find((route) => route.path === path);
   if (exactRoute) return <ModulePlaceholder moduleName={exactRoute.title} />;
