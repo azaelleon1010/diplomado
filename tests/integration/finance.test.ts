@@ -7,6 +7,7 @@ import { ensureIndexes } from '../../packages/database/src/indexes';
 import { createApp } from '../../apps/api/src/app';
 import { applicationModels } from '../../apps/api/src/infrastructure/models';
 import { buildIdentityDeps } from '../../apps/api/src/modules/identity/presentation/routes';
+import { TenantModel } from '../../apps/api/src/modules/tenant/infrastructure/models';
 import type { IEmailProvider } from '../../apps/api/src/modules/notifications/domain/ports';
 import { AuditEventModel, MembershipModel, RoleModel, UserModel } from '../../apps/api/src/modules/identity/infrastructure/models';
 import { AccountModel, FinanceCategoryModel, FinanceMovementModel } from '../../apps/api/src/modules/finance/infrastructure/models';
@@ -64,6 +65,10 @@ describe('Finance integration: accounts + categories + movements + isolation + p
       await model.deleteMany({ tenantId: { $in: [TENANT_A, TENANT_B] } }).exec();
     }
     const deps = buildIdentityDeps(testEmailProvider);
+    // Login requires an ACTIVE tenant document (see c9e2b40).
+    await TenantModel.deleteMany({ tenantId: { $in: [TENANT_A, TENANT_B] } }).exec();
+    await deps.tenants.create({ tenantId: TENANT_A, name: 'Tenant A', slug: 'tenant-a-finance-test', createdBy: 'test' });
+    await deps.tenants.create({ tenantId: TENANT_B, name: 'Tenant B', slug: 'tenant-b-finance-test', createdBy: 'test' });
     app = createApp(deps);
 
     const perms = ['finance.read', 'finance.create', 'finance.update', 'finance.delete'];
